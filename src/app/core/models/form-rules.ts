@@ -1,0 +1,4 @@
+import { AbstractControl, ValidationErrors } from '@angular/forms';
+export const requiredText = (min = 1) => (control: AbstractControl): ValidationErrors | null => typeof control.value !== 'string' || control.value.trim().length < min ? { field: min === 1 ? 'Este campo es obligatorio; no uses solo espacios.' : 'Escribe al menos ' + min + ' caracteres.' } : null;
+export const lettersOnly = (control: AbstractControl): ValidationErrors | null => /^[\p{L}\p{M}]+(?:[ .’'−-][\p{L}\p{M}]+)*$/u.test(String(control.value ?? '').trim()) ? null : { field: 'Escribe solo letras y espacios, sin números.' };
+export const positiveInteger = (control: AbstractControl): ValidationErrors | null => Number.isInteger(control.value) && control.value >= 1 ? null : { field: 'Escribe un número entero de al menos 1, sin letras.' };

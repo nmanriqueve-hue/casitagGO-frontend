@@ -1,0 +1,3 @@
+@if (toast.message(); as message) {
+  <div class="app-toast" [class]="'app-toast ' + message.tone" role="status"><span>{{ message.text }}</span><button type="button" (click)="toast.close()" aria-label="Cerrar">×</button></div>
+}

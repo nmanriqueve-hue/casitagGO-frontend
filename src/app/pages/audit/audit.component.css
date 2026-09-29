@@ -1,0 +1,5 @@
+.audit-tools { justify-content: flex-start; }
+.audit-tools input { max-width: 420px; }
+.audit-tools select { max-width: 180px; }
+code { color: var(--brand-dark); font-size: .74rem; }
+@media (max-width: 600px) { .audit-tools { align-items: stretch; flex-direction: column; } .audit-tools input, .audit-tools select { max-width: none; } }

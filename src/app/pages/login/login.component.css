@@ -1,0 +1,13 @@
+.auth-page { min-height: calc(100vh - 72px); display: grid; grid-template-columns: 1fr .9fr; }
+.auth-card { width: min(490px, calc(100% - 40px)); align-self: center; justify-self: center; padding: 58px 0; }
+.auth-card h1 { margin: 0; font-size: 2.55rem; font-weight: 820; letter-spacing: -.05em; }
+.intro { margin: 10px 0 30px; color: var(--muted); }
+.label-line { display: flex; justify-content: space-between; }
+.label-line a, .auth-switch a { color: var(--brand); font-size: .82rem; font-weight: 700; }
+.auth-switch { margin: 24px 0 0; text-align: center; color: var(--muted); font-size: .86rem; }
+.auth-aside { display: grid; place-items: end start; padding: 58px; color: white; background: linear-gradient(rgba(38, 19, 51, .35), rgba(38, 19, 51, .8)), url('/images/casa-cartagena.svg') center/cover; }
+.auth-aside div { max-width: 520px; }
+.quote-mark { font-size: 4rem; line-height: .5; color: #d7bce9; }
+.auth-aside h2 { font-size: clamp(2rem, 4vw, 3.3rem); font-weight: 800; letter-spacing: -.05em; }
+.auth-aside p { color: #ddd1e4; }
+@media (max-width: 800px) { .auth-page { grid-template-columns: 1fr; } .auth-aside { display: none; } }

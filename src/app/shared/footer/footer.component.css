@@ -1,0 +1,8 @@
+.site-footer { padding: 42px 0; color: #dcd3e7; background: #20172b; }
+.footer-grid { display: grid; grid-template-columns: 1.7fr repeat(3, 1fr); gap: 38px; }
+.footer-brand { color: white; font-size: 1.45rem; font-weight: 800; }
+.site-footer p { max-width: 320px; margin: 12px 0 0; color: #bfb2cd; }
+.site-footer strong { display: block; margin-bottom: 12px; color: white; }
+.site-footer a, .site-footer span { display: block; margin-top: 8px; color: #bfb2cd; font-size: .9rem; }
+@media (max-width: 760px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; } }

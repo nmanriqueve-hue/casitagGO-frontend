@@ -1,0 +1,4 @@
+@if (session.role() !== 'admin') {
+<button class="btn btn-outline-brand btn-sm" type="button" [attr.aria-pressed]="favorites.has(listingId())" (click)="toggle()">{{ favorites.has(listingId()) ? '♥ Guardado' : '♡ Guardar' }}</button>
+
+}

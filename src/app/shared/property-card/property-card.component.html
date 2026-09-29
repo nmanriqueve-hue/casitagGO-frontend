@@ -1,0 +1,13 @@
+<article class="property-card">
+  <a class="image-wrap" [routerLink]="['/alojamientos', listing().id]">
+    <img [src]="listing().image" [alt]="listing().title">
+    @if (listing().instantBooking) { <span class="image-tag">Reserva inmediata</span> }
+  </a>
+  <div class="card-body">
+    <app-favorite-button [listingId]="listing().id" />
+    <div class="location-line"><span>{{ listing().city }} · {{ listing().type }}</span><span class="rating">★ {{ listing().rating }}</span></div>
+    <a class="title" [routerLink]="['/alojamientos', listing().id]">{{ listing().title }}</a>
+    <p>{{ listing().capacity }} huéspedes · {{ listing().bedrooms }} habitación(es) · {{ listing().beds }} cama(s)</p>
+    <div class="price"><strong>{{ listing().price | currency:'COP':'symbol-narrow':'1.0-0' }}</strong> noche</div>
+  </div>
+</article>

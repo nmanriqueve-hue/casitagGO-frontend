@@ -1,0 +1,40 @@
+@if (listing; as stay) {
+  <section class="detail-page container">
+    <nav class="breadcrumb-line"><a routerLink="/buscar">Explorar</a><span>/</span><span>{{ stay.city }}</span><span>/</span><strong>{{ stay.title }}</strong></nav>
+    <div class="title-row"><div><h1>{{ stay.title }}</h1><p>@if (session.role() !== 'admin') { ★ {{ stay.rating }} · {{ stay.reviewsCount }} reseñas · }{{ stay.address }}</p></div><button class="btn btn-outline-brand" type="button">Compartir</button></div>
+    @if (canReserve()) { <div class="optional-actions"><app-favorite-button [listingId]="stay.id" /> <a class="btn btn-soft btn-sm" routerLink="/mensajes" [queryParams]="{ alojamiento: stay.id }">Contactar al anfitrión</a></div> }
+    <div class="gallery">
+      <button class="main-image" type="button" (click)="activeImage.set(0)"><img [src]="stay.images[0]" [alt]="stay.title"></button>
+      @for (image of stay.images.slice(1); track image; let index = $index) { <button type="button" (click)="activeImage.set(index + 1)"><img [src]="image" alt="Vista del alojamiento"></button> }
+    </div>
+    <div class="detail-grid">
+      <div class="content-column">
+        <section class="intro"><div><h2>{{ stay.type }} completo · Anfitrión: {{ hostName() }}</h2><p>{{ stay.capacity }} huéspedes · {{ stay.bedrooms }} habitación(es) · {{ stay.beds }} cama(s) · {{ stay.bathrooms }} baño(s)</p></div><span class="host-avatar">SR</span></section>
+        <section class="feature-list"><article><span>✓</span><div><strong>Reserva {{ stay.instantBooking ? 'inmediata' : 'con aprobación' }}</strong><p>{{ stay.instantBooking ? 'Tu reserva se confirma después de validar nuevamente la disponibilidad.' : 'El anfitrión revisará tu solicitud antes de confirmar.' }}</p></div></article><article><span>◇</span><div><strong>Cotización transparente</strong><p>Verás cada tarifa y descuento antes de confirmar.</p></div></article></section>
+        <section class="text-section"><h2>Acerca de este lugar</h2><p>{{ stay.description }}</p></section>
+        <section class="text-section"><h2>Servicios</h2><div class="amenities">@for (amenity of stay.amenities; track amenity) { <span>✓ {{ amenity }}</span> }</div></section>
+        <section class="text-section"><h2>Reglas del alojamiento</h2><ul>@for (rule of stay.rules; track rule) { <li>{{ rule }}</li> }</ul></section>
+        <section class="text-section location"><div><h2>Ubicación</h2><p>{{ stay.address }}</p></div><app-location-map [listingId]="stay.id" [city]="stay.city" /><div class="map-placeholder" hidden><span>{{ stay.city }}</span><small>La integración de mapas queda disponible al configurar un proveedor.</small></div></section>
+        @if (session.role() !== 'admin') { <section class="text-section"><h2>Reseñas</h2><div class="reviews">@for (review of catalog.reviewsFor(stay.id); track review.id) { <article><div><strong>{{ review.author }}</strong><span>★ {{ review.rating }} · {{ review.date }}</span></div><p>{{ review.content }}</p></article> } @empty { <p>Aún no hay reseñas. Puedes publicar la tuya desde Mis reservas cuando esté confirmada.</p> }</div></section> }
+      </div>
+      @if (canReserve()) { <aside class="booking-card" [formGroup]="quoteForm">
+        <div class="price-line"><span><strong>{{ stay.price | currency:'COP':'symbol-narrow':'1.0-0' }}</strong> noche</span><span>★ {{ stay.rating }}</span></div>
+        <div class="date-grid"><label><span>Llegada</span><input class="form-control" type="date" [min]="today" formControlName="checkIn"></label><label><span>Salida</span><input class="form-control" type="date" [min]="quoteForm.value.checkIn || tomorrow" formControlName="checkOut"></label></div>
+        <label><span>Huéspedes</span><input class="form-control" type="number" min="1" [max]="stay.capacity" formControlName="guests"></label>
+        <label class="extra-row"><input class="form-check-input" type="checkbox" formControlName="extras"><span>Kit de bienvenida <small>$45.000</small></span></label>
+        @if (quote(); as amount) {
+          <div class="quote-lines"><div><span>{{ amount.nights }} noches</span><span>{{ amount.base | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div><div><span>Limpieza</span><span>{{ amount.cleaning | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div><div><span>Servicio</span><span>{{ amount.service | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div>@if (amount.extras) { <div><span>Servicio adicional</span><span>{{ amount.extras | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div> }@if (amount.discount) { <div class="discount"><span>Descuento semanal</span><span>-{{ amount.discount | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div> }<div class="quote-total"><strong>Total</strong><strong>{{ amount.total | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div></div>
+        }
+        <p class="field-error" role="alert">{{ dateError }}</p>
+        <button class="btn btn-brand w-100" type="button" (click)="continueBooking()">Continuar con la reserva</button>
+        <p class="policy">{{ stay.cancellationPolicy }}</p>
+      </aside> }
+    </div>
+  </section>
+} @else {
+  <section class="empty-state"><h1>Alojamiento no encontrado</h1><a class="btn btn-brand" routerLink="/buscar">Volver a explorar</a></section>
+}
+
+@if (listing && activeImage() > 0) {
+  <div class="modal-backdrop-custom" (click)="activeImage.set(0)"><div class="image-modal"><button type="button" (click)="activeImage.set(0)">×</button><img [src]="listing.images[activeImage()]" alt="Vista ampliada del alojamiento"></div></div>
+}

@@ -1,0 +1,4 @@
+.filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.filter-tabs button { padding: 8px 13px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: white; font-size: .73rem; font-weight: 800; }
+.filter-tabs button.active { color: white; border-color: var(--brand); background: var(--brand); }
+.app-table td small { display: block; margin-top: 3px; color: var(--muted); font-size: .68rem; }

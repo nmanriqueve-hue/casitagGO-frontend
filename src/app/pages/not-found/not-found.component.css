@@ -1,0 +1,6 @@
+.not-found { min-height: 70vh; display: grid; place-items: center; padding: 60px 20px; text-align: center; background: var(--surface); }
+.not-found > div { max-width: 550px; }
+.not-found > div > span { display: block; color: #dfcfea; font-size: clamp(6rem, 18vw, 12rem); font-weight: 900; line-height: .8; letter-spacing: -.08em; }
+.not-found h1 { margin: 12px 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -.045em; }
+.not-found p:not(.eyebrow) { color: var(--muted); }
+.not-found .btn { margin-top: 18px; }

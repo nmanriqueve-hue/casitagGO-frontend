@@ -1,0 +1,11 @@
+.notifications-wrap { max-width: 900px; }
+.notification-list { overflow: hidden; }
+.notification-list button { width: 100%; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 16px; padding: 19px 22px; border: 0; border-bottom: 1px solid var(--border); text-align: left; background: white; }
+.notification-list button:last-child { border-bottom: 0; }
+.notification-list button.unread { background: #fcf9fe; }
+.notification-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: var(--brand); background: var(--brand-pale); font-weight: 800; }
+.notification-copy strong, .notification-copy span, .notification-copy small { display: block; }
+.notification-copy strong { font-size: .92rem; }
+.notification-copy span { margin-top: 3px; color: var(--muted); font-size: .84rem; }
+.notification-copy small { margin-top: 6px; color: #968e9b; font-size: .7rem; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }

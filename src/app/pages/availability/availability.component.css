@@ -1,0 +1,26 @@
+.availability-grid { display: grid; grid-template-columns: 280px 1fr; gap: 22px; }
+.side-panel { align-self: start; }
+.legend { display: grid; gap: 11px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); }
+.legend strong { font-size: .84rem; }
+.legend span { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .78rem; }
+.legend i { width: 12px; height: 12px; border-radius: 4px; background: #f2eef4; }
+.legend i.available { background: #e4f4eb; }.legend i.reserved { background: #cdb4e0; }.legend i.blocked { background: #f5d6dc; }
+.calendar-note { margin-top: 24px; padding: 14px; border-radius: 12px; background: var(--brand-pale); }
+.calendar-note strong { color: var(--brand-dark); font-size: .8rem; }
+.calendar-note p { margin: 5px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+.calendar-panel { overflow: hidden; }
+.calendar-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.calendar-toolbar h2 { margin: 0; font-size: 1.1rem; font-weight: 800; }
+.calendar-toolbar button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; background: white; }
+.weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.weekdays span { padding: 12px; color: var(--muted); background: #faf8fb; text-align: center; font-size: .7rem; font-weight: 800; }
+.calendar-grid button { min-height: 96px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; padding: 10px; border: 0; border-right: 1px solid var(--border); border-top: 1px solid var(--border); background: white; text-align: left; }
+.calendar-grid button small { font-size: .62rem; color: var(--muted); }
+.calendar-grid button.available:hover { background: #f1faf5; }
+.calendar-grid button.reserved { color: var(--brand-dark); background: #eee2f5; }
+.calendar-grid button.blocked { color: var(--danger); background: #fff0f2; }
+.calendar-grid button.outside { background: #fafafa; }
+@media (max-width: 850px) { .availability-grid { grid-template-columns: 1fr; } .calendar-grid button { min-height: 70px; } .calendar-grid button small { display: none; } }
+
+.calendar-grid button.past { color: #aaa; background: #f5f5f5; }
+.blocked-periods p { font-size: .75rem; margin-top: 12px; }

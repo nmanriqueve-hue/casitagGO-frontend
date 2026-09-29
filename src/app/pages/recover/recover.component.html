@@ -1,0 +1,5 @@
+<section class="recover-page"><div class="recover-card">
+  @if (!sent()) { <span class="lock">✦</span><p class="eyebrow">Recuperación simulada</p><h1>Recupera tu acceso</h1><p>Ingresa tu correo y te mostraremos la confirmación del envío.</p><form [formGroup]="form" (ngSubmit)="send()"><label class="form-label">Correo electrónico</label><input class="form-control" type="email" formControlName="email">@if (form.controls.email.touched && form.controls.email.invalid) { <div class="field-error">Ingresa un correo válido.</div> }<button class="btn btn-brand w-100 mt-3" type="submit">Enviar instrucciones</button></form> }
+  @else { <span class="success">✓</span><h1>Revisa tu correo</h1><p>Enviamos instrucciones simuladas a <strong>{{ form.value.email }}</strong>. El enlace vencería en 30 minutos.</p><a class="btn btn-brand w-100" routerLink="/iniciar-sesion">Volver al inicio de sesión</a> }
+  <a class="back-link" routerLink="/iniciar-sesion">← Regresar</a>
+</div></section>

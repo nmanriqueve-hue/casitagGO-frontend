@@ -1,0 +1,6 @@
+.user-tools input { max-width: 360px; }
+.user-tools > span { color: var(--muted); font-size: .78rem; }
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-cell > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: var(--brand-dark); background: var(--brand-pale); font-weight: 800; }
+.role { text-transform: capitalize; }
+.app-table td small { display: block; margin-top: 3px; color: var(--muted); }

@@ -1,0 +1,26 @@
+.panel-header > span { color: var(--muted); font-size: .72rem; }
+.dashboard-grid { display: grid; grid-template-columns: 1.4fr .8fr; gap: 22px; }
+.city-chart { display: grid; gap: 18px; }
+.city-chart > div { display: grid; grid-template-columns: 110px 1fr 30px; align-items: center; gap: 12px; font-size: .8rem; }
+.bar-track { height: 9px; border-radius: 99px; background: #eee9f1; overflow: hidden; }
+.bar-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand), #a87bc5); }
+.bar-88 { width: 88%; }.bar-73 { width: 73%; }.bar-61 { width: 61%; }.bar-42 { width: 42%; }.bar-34 { width: 34%; }
+.city-chart strong { text-align: right; }
+.status-chart { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 22px; }
+.donut { width: 120px; height: 120px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(var(--brand) 0 33%, #8fcaae 33% 66%, #e59aa6 66% 100%); }
+.donut::before { content: ''; grid-area: 1 / 1; width: 76px; height: 76px; border-radius: 50%; background: white; }
+.donut span { z-index: 1; grid-area: 1 / 1; font-size: 1.4rem; font-weight: 800; text-align: center; }
+.donut small { display: block; color: var(--muted); font-size: .6rem; font-weight: 500; }
+.status-chart ul { padding: 0; margin: 0; list-style: none; }
+.status-chart li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; margin: 12px 0; font-size: .75rem; }
+.status-chart li i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }.status-chart li i.completed { background: #8fcaae; }.status-chart li i.cancelled { background: #e59aa6; }
+.admin-links { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 22px; }
+.admin-links a { padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--ink); background: white; }
+.admin-links a:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.admin-links a > span { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 15px; border-radius: 10px; color: var(--brand); background: var(--brand-pale); }
+.admin-links strong, .admin-links small { display: block; }
+.admin-links small { margin-top: 4px; color: var(--muted); font-size: .7rem; }
+@media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } .admin-links { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .status-chart { grid-template-columns: 1fr; } .admin-links { grid-template-columns: 1fr; } }
+
+progress { width: 100%; height: 18px; accent-color: #7040a0; } .live-donut { width: 160px; flex-shrink: 0; } .live-donut text { font-size: 7px; fill: #452163; }

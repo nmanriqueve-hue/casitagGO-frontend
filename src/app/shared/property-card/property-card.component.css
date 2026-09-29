@@ -1,0 +1,13 @@
+.property-card { overflow: hidden; height: 100%; border: 1px solid var(--border); border-radius: var(--radius-lg); background: white; transition: transform .2s ease, box-shadow .2s ease; }
+.property-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.image-wrap { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--brand-pale); }
+.image-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.property-card:hover img { transform: scale(1.025); }
+.image-tag { position: absolute; left: 14px; bottom: 14px; padding: 7px 10px; border-radius: 999px; color: var(--brand-dark); background: rgba(255, 255, 255, .92); font-size: .74rem; font-weight: 750; }
+.card-body { padding: 17px; }
+.location-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .78rem; font-weight: 650; }
+.rating { color: var(--amber); }
+.title { display: block; margin-top: 7px; color: var(--ink); font-size: 1.03rem; font-weight: 760; line-height: 1.3; }
+.card-body p { min-height: 38px; margin: 8px 0 13px; color: var(--muted); font-size: .82rem; }
+.price { color: var(--muted); font-size: .84rem; }
+.price strong { color: var(--ink); font-size: 1rem; }

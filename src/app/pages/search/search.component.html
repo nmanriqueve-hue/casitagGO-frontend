@@ -1,0 +1,28 @@
+<section class="search-page">
+  <div class="container">
+    <div class="search-strip" [formGroup]="form">
+      <input class="form-control" formControlName="city" placeholder="Ciudad o destino">
+      <input class="form-control" type="date" [min]="today" formControlName="checkIn" aria-label="Fecha de llegada">
+      <input class="form-control" type="date" [min]="form.value.checkIn || tomorrow" formControlName="checkOut" aria-label="Fecha de salida">
+      <input class="form-control" type="number" min="1" formControlName="guests" aria-label="Número de huéspedes">
+      <button class="btn btn-brand" type="button" (click)="apply()">Actualizar</button>
+    </div>
+    <p class="field-error" role="alert">{{ dateError }}</p>
+    <button class="filter-toggle btn btn-outline-brand" type="button" (click)="mobileFilters.set(!mobileFilters())">Filtros</button>
+    <div class="results-layout">
+      <aside class="filters" [class.open]="mobileFilters()" [formGroup]="form">
+        <div class="filter-heading"><strong>Filtros</strong><button type="button" (click)="clearFilters()">Limpiar</button></div>
+        <label class="form-label">Tipo de alojamiento</label>
+        <select class="form-select" formControlName="type"><option value="">Todos</option><option>Casa</option><option>Apartamento</option><option>Loft</option><option>Cabaña</option></select>
+        <div class="filter-group"><label class="form-label">Precio por noche</label><div class="price-range"><input class="form-control" type="number" formControlName="minPrice"><input class="form-control" type="number" formControlName="maxPrice"></div><small>{{ form.value.minPrice | currency:'COP':'symbol-narrow':'1.0-0' }} — {{ form.value.maxPrice | currency:'COP':'symbol-narrow':'1.0-0' }}</small></div>
+        <div class="filter-group"><label class="form-label">Servicios</label>@for (amenity of amenityOptions; track amenity) { <label class="check-row"><input class="form-check-input" type="checkbox" [checked]="selectedAmenities().includes(amenity)" (change)="toggleAmenity(amenity)"><span>{{ amenity }}</span></label> }</div>
+      </aside>
+      <div class="results">
+        <div class="results-head"><div><h1>Estancias disponibles</h1><p>{{ results().length }} opciones según tus criterios</p></div><select class="form-select"><option>Recomendados</option><option>Menor precio</option><option>Mejor calificación</option></select></div>
+        <div class="row g-4">
+          @for (listing of results(); track listing.id) { <div class="col-md-6"><app-property-card [listing]="listing" /></div> } @empty { <div class="empty-state panel"><h2>No encontramos coincidencias</h2><p>Prueba retirando uno de los filtros o ampliando el rango de precio.</p><button class="btn btn-soft" type="button" (click)="clearFilters()">Restablecer filtros</button></div> }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

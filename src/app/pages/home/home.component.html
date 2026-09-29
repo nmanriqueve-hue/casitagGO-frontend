@@ -1,0 +1,49 @@
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Alojamientos que se sienten cercanos</p>
+      <h1>Encuentra tu lugar para la próxima historia.</h1>
+      <p>Descubre estancias seleccionadas, compara con claridad y reserva con disponibilidad verificada.</p>
+      <form class="search-box" [formGroup]="searchForm" (ngSubmit)="search()">
+        <label><span>Destino</span><input class="form-control" formControlName="city" placeholder="¿A dónde vas?"></label>
+        <label><span>Llegada</span><input class="form-control" type="date" [min]="today" formControlName="checkIn"></label>
+        <label><span>Salida</span><input class="form-control" type="date" [min]="searchForm.value.checkIn || tomorrow" formControlName="checkOut"></label>
+        <label><span>Huéspedes</span><input class="form-control" type="number" min="1" formControlName="guests"></label>
+        <button class="btn btn-brand" type="submit">Buscar</button>
+      </form>
+      <p class="field-error" role="alert">{{ dateError }}</p>
+      <div class="trust-line"><span>✓ Precios transparentes</span><span>✓ Disponibilidad centralizada</span><span>✓ Reserva verificable</span></div>
+    </div>
+    <div class="hero-visual">
+      <img src="images/hero-stay.svg" alt="Alojamiento cálido rodeado de naturaleza">
+      <div class="floating-card"><strong>4,9 ★</strong><span>Experiencias que inspiran confianza</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="featured container">
+  <div class="section-head">
+    <div><p class="eyebrow">Selección Lúmina</p><h2 class="section-title">Lugares para bajar el ritmo</h2></div>
+    <a routerLink="/buscar">Ver todos →</a>
+  </div>
+  <div class="row g-4">
+    @for (listing of featured; track listing.id) { <div class="col-md-6 col-lg-4"><app-property-card [listing]="listing" /></div> }
+  </div>
+</section>
+
+<section class="how-it-works">
+  <div class="container">
+    <p class="eyebrow">Una reserva sin sorpresas</p>
+    <h2 class="section-title">Todo claro, desde la búsqueda hasta la llegada.</h2>
+    <div class="steps">
+      <article><span>01</span><h3>Explora a tu manera</h3><p>Filtra por ciudad, fechas, capacidad, tipo, precio y servicios.</p></article>
+      <article><span>02</span><h3>Compara el valor real</h3><p>Revisa reglas, disponibilidad, reseñas y una cotización desglosada.</p></article>
+      <article><span>03</span><h3>Reserva con certeza</h3><p>El periodo se valida otra vez antes de confirmar para evitar cruces.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="host-cta container">
+  <div><p class="eyebrow">Para anfitriones</p><h2>Tu espacio puede convertirse en la próxima gran estadía.</h2><p>Publica, administra precios, reglas y disponibilidad desde un solo lugar.</p></div>
+  <a class="btn btn-light" routerLink="/registro">Quiero ser anfitrión</a>
+</section>

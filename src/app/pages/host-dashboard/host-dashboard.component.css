@@ -1,0 +1,10 @@
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; }
+.panel-header a { color: var(--brand); font-size: .78rem; font-weight: 700; }
+.quick-actions a { display: flex; gap: 13px; align-items: center; padding: 14px 0; color: var(--ink); border-bottom: 1px solid var(--border); }
+.quick-actions a:first-child { padding-top: 0; }
+.quick-actions a:last-child { padding-bottom: 0; border: 0; }
+.quick-actions a > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: var(--brand); background: var(--brand-pale); font-weight: 800; }
+.quick-actions strong, .quick-actions small { display: block; }
+.quick-actions strong { font-size: .84rem; }
+.quick-actions small { margin-top: 3px; color: var(--muted); font-size: .7rem; }
+@media (max-width: 940px) { .dashboard-grid { grid-template-columns: 1fr; } }

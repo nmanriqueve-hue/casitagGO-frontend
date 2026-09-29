@@ -1,0 +1,4 @@
+.app-toast { position: fixed; right: 24px; bottom: 24px; z-index: 500; display: flex; align-items: center; gap: 20px; max-width: min(390px, calc(100vw - 32px)); padding: 14px 16px; border: 1px solid #d8c7ea; border-radius: 14px; color: var(--brand-dark); background: white; box-shadow: var(--shadow-lg); font-size: .9rem; font-weight: 650; }
+.app-toast.success { border-color: #bde4d1; color: #17643e; }
+.app-toast.warning { border-color: #f0d79c; color: #79560a; }
+.app-toast button { border: 0; background: transparent; color: currentColor; font-size: 1.3rem; }
