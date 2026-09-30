@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { dateRangeError, overlaps, validDate } from './date-rules';
+import {
+  addDays,
+  dateRangeError,
+  localToday,
+  overlaps,
+  validDate
+} from './date-rules';
+
 
 describe('validDate', () => {
 
@@ -140,5 +147,49 @@ describe('overlaps', () => {
     );
 
     expect(resultado).toBe(true);
+  });
+});
+
+describe('localToday', () => {
+  it('debe convertir una fecha al formato AAAA-MM-DD', () => {
+    const fecha = new Date(2026, 8, 30);
+
+    const resultado = localToday(fecha);
+
+    expect(resultado).toBe('2026-09-30');
+  });
+
+  it('debe agregar cero a la izquierda en meses y días de un solo dígito', () => {
+    const fecha = new Date(2026, 0, 5);
+
+    const resultado = localToday(fecha);
+
+    expect(resultado).toBe('2026-01-05');
+  });
+});
+
+describe('addDays', () => {
+  it('debe sumar días correctamente a una fecha', () => {
+    const resultado = addDays('2026-10-10', 5);
+
+    expect(resultado).toBe('2026-10-15');
+  });
+
+  it('debe cambiar de mes cuando la suma supera el último día del mes', () => {
+    const resultado = addDays('2026-09-30', 1);
+
+    expect(resultado).toBe('2026-10-01');
+  });
+
+  it('debe cambiar de año cuando se suma un día al 31 de diciembre', () => {
+    const resultado = addDays('2026-12-31', 1);
+
+    expect(resultado).toBe('2027-01-01');
+  });
+
+  it('debe permitir restar días', () => {
+    const resultado = addDays('2026-10-01', -1);
+
+    expect(resultado).toBe('2026-09-30');
   });
 });
