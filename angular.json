@@ -78,18 +78,24 @@
           },
           "defaultConfiguration": "production"
         },
-        "serve": {
-          "builder": "@angular/build:dev-server",
-          "configurations": {
-            "production": {
-              "buildTarget": "inversiones-lr-frontend:build:production"
-            },
-            "development": {
-              "buildTarget": "inversiones-lr-frontend:build:development"
-            }
-          },
-          "defaultConfiguration": "development"
-        }
+    "serve": {
+  "builder": "@angular/build:dev-server",
+  "configurations": {
+    "production": {
+      "buildTarget": "inversiones-lr-frontend:build:production"
+    },
+    "development": {
+      "buildTarget": "inversiones-lr-frontend:build:development"
+    }
+  },
+  "defaultConfiguration": "development"
+},
+"test": {
+  "builder": "@angular/build:unit-test",
+  "options": {
+    "tsConfig": "tsconfig.spec.json"
+  }
+}
       }
     }
   }
