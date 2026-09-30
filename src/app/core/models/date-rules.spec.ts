@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validDate, dateRangeError } from './date-rules';
+import { dateRangeError, overlaps, validDate } from './date-rules';
 
 describe('validDate', () => {
 
@@ -96,3 +96,49 @@ it('no debe mostrar error si las fechas son opcionales y están vacías', () => 
 
 });
 
+
+describe('overlaps', () => {
+  it('debe detectar cuando dos rangos de fechas se superponen', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-12',
+      '2026-10-18'
+    );
+
+    expect(resultado).toBe(true);
+  });
+
+  it('debe indicar que no hay superposición cuando los rangos están separados', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-16',
+      '2026-10-20'
+    );
+
+    expect(resultado).toBe(false);
+  });
+
+  it('no debe considerar superposición cuando una reserva empieza el día que termina la otra', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-15',
+      '2026-10-20'
+    );
+
+    expect(resultado).toBe(false);
+  });
+
+  it('debe detectar cuando un rango está completamente contenido dentro de otro', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-20',
+      '2026-10-12',
+      '2026-10-15'
+    );
+
+    expect(resultado).toBe(true);
+  });
+});
