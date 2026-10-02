@@ -1,0 +1,195 @@
+import { describe, expect, it } from 'vitest';
+import {
+  addDays,
+  dateRangeError,
+  localToday,
+  overlaps,
+  validDate
+} from './date-rules';
+
+
+describe('validDate', () => {
+
+  it('debe aceptar una fecha válida con formato AAAA-MM-DD', () => {
+    const resultado = validDate('2026-09-30');
+
+    expect(resultado).toBe(true);
+  });
+  it('debe rechazar una fecha que no existe', () => {
+  const resultado = validDate('2026-02-30');
+
+  expect(resultado).toBe(false);
+});
+it('debe rechazar una fecha con formato diferente a AAAA-MM-DD', () => {
+  const resultado = validDate('30/09/2026');
+
+  expect(resultado).toBe(false);
+});
+
+});
+
+
+describe('dateRangeError', () => {
+
+  it('no debe mostrar error cuando el rango de fechas es válido', () => {
+    const resultado = dateRangeError(
+      '2026-10-10',
+      '2026-10-15',
+      true,
+      '2026-09-30'
+    );
+
+    expect(resultado).toBe('');
+  });
+
+  it('debe rechazar una fecha de llegada que esté en el pasado', () => {
+  const resultado = dateRangeError(
+    '2026-09-29',
+    '2026-10-02',
+    true,
+    '2026-09-30'
+  );
+
+  expect(resultado).toBe(
+    'La fecha de llegada no puede estar en el pasado.'
+  );
+});
+it('debe rechazar cuando la salida es el mismo día de la llegada', () => {
+  const resultado = dateRangeError(
+    '2026-10-10',
+    '2026-10-10',
+    true,
+    '2026-09-30'
+  );
+
+  expect(resultado).toBe(
+    'La salida debe ser posterior a la llegada.'
+  );
+});
+it('debe mostrar error cuando falta la fecha de salida', () => {
+  const resultado = dateRangeError(
+    '2026-10-10',
+    null,
+    true,
+    '2026-09-30'
+  );
+
+  expect(resultado).toBe(
+    'Selecciona la fecha de llegada y la fecha de salida.'
+  );
+});
+it('debe rechazar un rango que contenga una fecha inválida', () => {
+  const resultado = dateRangeError(
+    '2026-10-10',
+    '2026-02-30',
+    true,
+    '2026-09-30'
+  );
+
+  expect(resultado).toBe(
+    'Introduce fechas válidas.'
+  );
+});
+it('no debe mostrar error si las fechas son opcionales y están vacías', () => {
+  const resultado = dateRangeError(
+    null,
+    null,
+    false,
+    '2026-09-30'
+  );
+
+  expect(resultado).toBe('');
+});
+
+});
+
+
+describe('overlaps', () => {
+  it('debe detectar cuando dos rangos de fechas se superponen', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-12',
+      '2026-10-18'
+    );
+
+    expect(resultado).toBe(true);
+  });
+
+  it('debe indicar que no hay superposición cuando los rangos están separados', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-16',
+      '2026-10-20'
+    );
+
+    expect(resultado).toBe(false);
+  });
+
+  it('no debe considerar superposición cuando una reserva empieza el día que termina la otra', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-15',
+      '2026-10-15',
+      '2026-10-20'
+    );
+
+    expect(resultado).toBe(false);
+  });
+
+  it('debe detectar cuando un rango está completamente contenido dentro de otro', () => {
+    const resultado = overlaps(
+      '2026-10-10',
+      '2026-10-20',
+      '2026-10-12',
+      '2026-10-15'
+    );
+
+    expect(resultado).toBe(true);
+  });
+});
+
+describe('localToday', () => {
+  it('debe convertir una fecha al formato AAAA-MM-DD', () => {
+    const fecha = new Date(2026, 8, 30);
+
+    const resultado = localToday(fecha);
+
+    expect(resultado).toBe('2026-09-30');
+  });
+
+  it('debe agregar cero a la izquierda en meses y días de un solo dígito', () => {
+    const fecha = new Date(2026, 0, 5);
+
+    const resultado = localToday(fecha);
+
+    expect(resultado).toBe('2026-01-05');
+  });
+});
+
+describe('addDays', () => {
+  it('debe sumar días correctamente a una fecha', () => {
+    const resultado = addDays('2026-10-10', 5);
+
+    expect(resultado).toBe('2026-10-15');
+  });
+
+  it('debe cambiar de mes cuando la suma supera el último día del mes', () => {
+    const resultado = addDays('2026-09-30', 1);
+
+    expect(resultado).toBe('2026-10-01');
+  });
+
+  it('debe cambiar de año cuando se suma un día al 31 de diciembre', () => {
+    const resultado = addDays('2026-12-31', 1);
+
+    expect(resultado).toBe('2027-01-01');
+  });
+
+  it('debe permitir restar días', () => {
+    const resultado = addDays('2026-10-01', -1);
+
+    expect(resultado).toBe('2026-09-30');
+  });
+});
