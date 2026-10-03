@@ -1,1 +1,24 @@
-<section class="page-shell"><div class="container security"><div class="page-heading"><div><p class="eyebrow">Cuenta</p><h1>Verificación en dos pasos</h1></div><a routerLink="/perfil">Mi perfil</a></div><div class="panel panel-body"><h2>{{ active() ? 'Verificación activada' : 'Añade un segundo paso al iniciar sesión' }}</h2><p>Demostración de autenticación multifactor. No envía correos ni SMS y no ofrece protección real de cuenta.</p>@if (active()) { <button class="btn btn-outline-brand" type="button" (click)="disable()">Desactivar demostración</button> } @else if (!enrolling()) { <button class="btn btn-brand" type="button" (click)="enrolling.set(true)">Configurar verificación</button> }@if (enrolling()) { <form (ngSubmit)="activate()"><label class="form-label" for="enroll-code">Código de demostración: 123456</label><input id="enroll-code" name="code" class="form-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" [(ngModel)]="code"><div class="actions"><button class="btn btn-brand" [disabled]="code.length !== 6">Activar</button><button class="btn btn-light" type="button" (click)="enrolling.set(false)">Cancelar</button></div></form> }<p role="status">{{ notice() }}</p></div></div></section>
+﻿<section class="page-shell"><div class="container security"><div class="page-heading"><div><p class="eyebrow">Cuenta</p><h1>Verificación en dos pasos</h1></div><a routerLink="/perfil">Mi perfil</a></div>
+<div class="panel panel-body">
+@if (cargando()) {
+  <p>Cargando...</p>
+} @else {
+  <h2>{{ activo() ? 'Verificación activada' : 'Añade un segundo paso al iniciar sesión' }}</h2>
+  <p>Al iniciar sesión te enviaremos un código de 6 dígitos a tu correo. Tendrás que escribirlo para entrar.</p>
+  @if (error()) { <div class="alert alert-danger" role="alert">{{ error() }}</div> }
+  @if (notice()) { <div class="alert alert-success" role="status">{{ notice() }}</div> }
+  @if (accion() === null) {
+    @if (activo()) { <button class="btn btn-outline-brand" type="button" (click)="abrir('desactivar')">Desactivar verificación</button> }
+    @else { <button class="btn btn-brand" type="button" (click)="abrir('activar')">Activar verificación</button> }
+  } @else {
+    <form (ngSubmit)="confirmar()">
+      <label class="form-label" for="mfa-password">Escribe tu contraseña para confirmar</label>
+      <input id="mfa-password" name="contrasena" class="form-control" type="password" autocomplete="current-password" [(ngModel)]="contrasena">
+      <div class="actions mt-3">
+        <button class="btn btn-brand" type="submit" [disabled]="!contrasena || enviando()">Confirmar</button>
+        <button class="btn btn-light" type="button" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  }
+}
+</div></div></section>

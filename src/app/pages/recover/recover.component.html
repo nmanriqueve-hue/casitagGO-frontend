@@ -1,5 +1,27 @@
-<section class="recover-page"><div class="recover-card">
-  @if (!sent()) { <span class="lock">✦</span><p class="eyebrow">Recuperación simulada</p><h1>Recupera tu acceso</h1><p>Ingresa tu correo y te mostraremos la confirmación del envío.</p><form [formGroup]="form" (ngSubmit)="send()"><label class="form-label">Correo electrónico</label><input class="form-control" type="email" formControlName="email">@if (form.controls.email.touched && form.controls.email.invalid) { <div class="field-error">Ingresa un correo válido.</div> }<button class="btn btn-brand w-100 mt-3" type="submit">Enviar instrucciones</button></form> }
-  @else { <span class="success">✓</span><h1>Revisa tu correo</h1><p>Enviamos instrucciones simuladas a <strong>{{ form.value.email }}</strong>. El enlace vencería en 30 minutos.</p><a class="btn btn-brand w-100" routerLink="/iniciar-sesion">Volver al inicio de sesión</a> }
-  <a class="back-link" routerLink="/iniciar-sesion">← Regresar</a>
+﻿<section class="recover-page"><div class="recover-card">
+  @if (paso() === 'correo') {
+    <span class="lock">✦</span><p class="eyebrow">Recuperación de contraseña</p><h1>Recupera tu acceso</h1><p>Ingresa tu correo y te enviaremos un código de verificación.</p>
+    @if (authError()) { <div class="alert alert-danger" role="alert">{{ authError() }}</div> }
+    <form [formGroup]="formCorreo" (ngSubmit)="solicitar()">
+      <label class="form-label">Correo electrónico</label><input class="form-control" type="email" formControlName="email">
+      @if (intentoCorreo() && formCorreo.controls.email.invalid) { <div class="field-error">Ingresa un correo válido.</div> }
+      <button class="btn btn-brand w-100 mt-3" type="submit" [disabled]="enviando()">Enviar código</button>
+    </form>
+  } @else if (paso() === 'codigo') {
+    <span class="lock">✦</span><p class="eyebrow">Paso 2 de 2</p><h1>Revisa tu correo</h1><p>Si <strong>{{ correo }}</strong> está registrado, te enviamos un código. Escríbelo aquí junto con tu nueva contraseña. Revisa también la carpeta de spam.</p>
+    @if (authError()) { <div class="alert alert-danger" role="alert">{{ authError() }}</div> }
+    <form [formGroup]="formCodigo" (ngSubmit)="confirmar()">
+      <label class="form-label">Código de verificación</label><input class="form-control" formControlName="codigo" autocomplete="one-time-code">
+      @if (intentoCodigo() && formCodigo.controls.codigo.invalid) { <div class="field-error">Escribe el código que recibiste.</div> }
+      <label class="form-label mt-3">Nueva contraseña</label><input class="form-control" type="password" formControlName="password" autocomplete="new-password">
+      @if (intentoCodigo() && formCodigo.controls.password.invalid) { <div class="field-error">Debe tener entre 8 y 72 caracteres.</div> }
+      <label class="form-label mt-3">Confirmar nueva contraseña</label><input class="form-control" type="password" formControlName="confirmPassword" autocomplete="new-password">
+      @if (intentoCodigo() && formCodigo.value.password !== formCodigo.value.confirmPassword) { <div class="field-error">Las contraseñas no coinciden.</div> }
+      <button class="btn btn-brand w-100 mt-3" type="submit" [disabled]="enviando()">Cambiar contraseña</button>
+    </form>
+    <button class="btn btn-link w-100 mt-2" type="button" (click)="cambiarCorreo()">Usar otro correo o pedir un código nuevo</button>
+  } @else {
+    <span class="success">✓</span><h1>Contraseña actualizada</h1><p>Ya puedes iniciar sesión con tu nueva contraseña.</p><a class="btn btn-brand w-100" routerLink="/iniciar-sesion">Ir a iniciar sesión</a>
+  }
+  <a class="back-link" routerLink="/iniciar-sesion">← Volver al inicio de sesión</a>
 </div></section>
