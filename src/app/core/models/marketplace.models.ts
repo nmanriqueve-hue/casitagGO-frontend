@@ -1,9 +1,10 @@
-export type UserRole = 'guest' | 'host' | 'admin';
+﻿export type UserRole = 'guest' | 'host' | 'admin';
 export type ListingStatus = 'BORRADOR' | 'PENDIENTE_REVISION' | 'ACTIVA' | 'PAUSADA' | 'BLOQUEADA';
 export type BookingStatus = 'CONFIRMADA' | 'COMPLETADA' | 'CANCELADA' | 'EN_REVISION';
 
 export interface User {
   id: number;
+  uuid?: string;
   name: string;
   email: string;
   phone: string;
@@ -98,3 +99,5 @@ export interface SearchFilters {
   maxPrice: number;
   amenities: string[];
 }
+
+

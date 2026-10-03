@@ -1,17 +1,19 @@
-<section class="register-page">
+﻿<section class="register-page">
   <div class="register-intro"><a routerLink="/" class="mini-brand">Lúmina</a><div><p class="eyebrow">Empieza aquí</p><h1>Una cuenta, distintas formas de vivir el viaje.</h1><p>Reserva lugares especiales o comparte un alojamiento con una gestión sencilla y transparente.</p><ul><li>Disponibilidad centralizada</li><li>Cotizaciones desglosadas</li><li>Historial y notificaciones</li></ul></div></div>
   <div class="register-form-wrap">
     <div class="register-form"><h2>Crea tu cuenta</h2><p>Completa tus datos para comenzar.</p>
-      <p class="field-error" role="alert">{{ authError }}</p><form [formGroup]="form" (ngSubmit)="register()">
+      @if (authError()) { <div class="alert alert-danger" role="alert">{{ authError() }}</div> }<form [formGroup]="form" (ngSubmit)="register()">
         <div class="row g-3"><div class="col-12"><label class="form-label">Quiero usar Lúmina como</label><div class="role-cards"><label [class.selected]="form.value.role === 'guest'"><input type="radio" formControlName="role" value="guest"><strong>Huésped</strong><span>Buscar y reservar</span></label><label [class.selected]="form.value.role === 'host'"><input type="radio" formControlName="role" value="host"><strong>Anfitrión</strong><span>Publicar y administrar</span></label></div></div>
           <div class="col-12"><label class="form-label">Nombre completo</label><input class="form-control" formControlName="name">@if (submitted && form.controls.name.invalid) { <div class="field-error">Escribe tu nombre completo.</div> }</div>
-          <div class="col-md-6"><label class="form-label">Correo</label><input class="form-control" type="email" formControlName="email"></div><div class="col-md-6"><label class="form-label">Teléfono</label><input class="form-control" formControlName="phone"></div>
-          <div class="col-md-6"><label class="form-label">Contraseña</label><input class="form-control" type="password" formControlName="password"></div><div class="col-md-6"><label class="form-label">Confirmar contraseña</label><input class="form-control" type="password" formControlName="confirmPassword"></div>
+          <div class="col-12"><label class="form-label">Correo</label><input class="form-control" type="email" formControlName="email">@if (submitted && form.controls.email.invalid) { <div class="field-error">Ingresa un correo válido.</div> }</div>
+          <div class="col-md-6"><label class="form-label">Contraseña</label><input class="form-control" type="password" formControlName="password">@if (submitted && form.controls.password.invalid) { <div class="field-error">Debe tener entre 8 y 72 caracteres.</div> }</div><div class="col-md-6"><label class="form-label">Confirmar contraseña</label><input class="form-control" type="password" formControlName="confirmPassword"></div>
           @if (submitted && form.value.password !== form.value.confirmPassword) { <div class="col-12 field-error">Las contraseñas no coinciden.</div> }
           <div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox" formControlName="terms"><span class="form-check-label">Acepto los términos, la política de privacidad y el tratamiento de datos.</span></label>@if (submitted && form.controls.terms.invalid) { <div class="field-error">Debes aceptar las condiciones para continuar.</div> }</div>
-          <div class="col-12"><button class="btn btn-brand w-100" type="submit">Crear cuenta</button></div>
+          <div class="col-12"><button class="btn btn-brand w-100" type="submit" [disabled]="enviando()">Crear cuenta</button></div>
         </div>
       </form><p class="switch">¿Ya tienes cuenta? <a routerLink="/iniciar-sesion">Iniciar sesión</a></p>
     </div>
   </div>
 </section>
+
+
