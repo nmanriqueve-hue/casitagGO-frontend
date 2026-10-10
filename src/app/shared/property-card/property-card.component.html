@@ -1,13 +1,13 @@
-<article class="property-card">
-  <a class="image-wrap" [routerLink]="['/alojamientos', listing().id]">
+﻿<article class="property-card">
+  <a class="image-wrap" [routerLink]="['/alojamientos', listing().uuid ?? listing().id]">
     <img [src]="listing().image" [alt]="listing().title">
     @if (listing().instantBooking) { <span class="image-tag">Reserva inmediata</span> }
   </a>
   <div class="card-body">
-    <app-favorite-button [listingId]="listing().id" />
-    <div class="location-line"><span>{{ listing().city }} · {{ listing().type }}</span><span class="rating">★ {{ listing().rating }}</span></div>
-    <a class="title" [routerLink]="['/alojamientos', listing().id]">{{ listing().title }}</a>
-    <p>{{ listing().capacity }} huéspedes · {{ listing().bedrooms }} habitación(es) · {{ listing().beds }} cama(s)</p>
+    @if (!listing().uuid) { <app-favorite-button [listingId]="listing().id" /> }
+    <div class="location-line"><span>{{ listing().city }} · {{ listing().type }}</span>@if (listing().reviewsCount > 0) { <span class="rating">★ {{ listing().rating }}</span> }</div>
+    <a class="title" [routerLink]="['/alojamientos', listing().uuid ?? listing().id]">{{ listing().title }}</a>
+    <p>{{ listing().capacity }} huéspedes@if (listing().bedrooms > 0) { · {{ listing().bedrooms }} habitación(es) }@if (listing().beds > 0) { · {{ listing().beds }} cama(s) }</p>
     <div class="price"><strong>{{ listing().price | currency:'COP':'symbol-narrow':'1.0-0' }}</strong> noche</div>
   </div>
 </article>

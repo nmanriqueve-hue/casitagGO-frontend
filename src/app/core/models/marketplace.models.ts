@@ -24,6 +24,8 @@ export interface Review {
 export interface Listing {
   id: number;
   hostId: number;
+  hostUuid?: string;
+  uuid?: string;
   title: string;
   description: string;
   city: string;
@@ -99,5 +101,8 @@ export interface SearchFilters {
   maxPrice: number;
   amenities: string[];
 }
+
+
+
 
 
