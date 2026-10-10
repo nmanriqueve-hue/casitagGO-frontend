@@ -1,6 +1,7 @@
-import { Injectable, inject, signal } from '@angular/core';
+﻿import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, timeout } from 'rxjs';
+import { Observable, catchError, firstValueFrom, map, of, timeout } from 'rxjs';
+import { API_URL } from '../config/api.config';
 import { MAPS_CONFIG } from '../config/maps.config';
 import { GeoPoint } from '../models/optional.models';
 @Injectable({ providedIn: 'root' })
@@ -29,6 +30,13 @@ export class MapsService {
     'Cali': { latitude: 3.45, longitude: -76.53, label: 'Cali · ubicación aproximada' },
     'Villa de Leyva': { latitude: 5.64, longitude: -73.52, label: 'Villa de Leyva · ubicación aproximada' }
   };
+  ubicacionDeBack(uuid: string): Observable<GeoPoint | null> {
+    return this.http.get<{ publicacionId: string; latitud: number | null; longitud: number | null }>(`${API_URL}/api/publicaciones/${uuid}/ubicacion`).pipe(
+      map((u) => (Number.isFinite(u.latitud) && Number.isFinite(u.longitud) ? { latitude: u.latitud as number, longitude: u.longitud as number, label: 'Ubicación del alojamiento' } : null)),
+      catchError(() => of(null))
+    );
+  }
+
   point(id: number, city: string): GeoPoint | null { return this.positions()[id] ?? this.cities[city] ?? null; }
   save(id: number, point: GeoPoint): void {
     if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) || Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) throw new Error('Coordenadas inválidas.');
@@ -44,3 +52,4 @@ export class MapsService {
     return points;
   }
 }
+
