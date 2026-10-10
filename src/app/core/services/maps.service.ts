@@ -31,8 +31,8 @@ export class MapsService {
     'Villa de Leyva': { latitude: 5.64, longitude: -73.52, label: 'Villa de Leyva · ubicación aproximada' }
   };
   ubicacionDeBack(uuid: string): Observable<GeoPoint | null> {
-    return this.http.get<{ publicacionId: string; latitud: number | null; longitud: number | null }>(`${API_URL}/api/publicaciones/${uuid}/ubicacion`).pipe(
-      map((u) => (Number.isFinite(u.latitud) && Number.isFinite(u.longitud) ? { latitude: u.latitud as number, longitude: u.longitud as number, label: 'Ubicación del alojamiento' } : null)),
+    return this.http.get<{ publicacionId: string; latitud: number | null; longitud: number | null; aproximada?: boolean }>(`${API_URL}/api/publicaciones/${uuid}/ubicacion`).pipe(
+      map((u) => (Number.isFinite(u.latitud) && Number.isFinite(u.longitud) ? { latitude: u.latitud as number, longitude: u.longitud as number, label: u.aproximada ? 'Ubicación aproximada (centro de la ciudad)' : 'Ubicación del alojamiento' } : null)),
       catchError(() => of(null))
     );
   }
@@ -52,4 +52,6 @@ export class MapsService {
     return points;
   }
 }
+
+
 
