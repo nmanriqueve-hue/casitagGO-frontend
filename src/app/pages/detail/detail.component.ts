@@ -137,7 +137,7 @@ export class DetailComponent {
     if (!stay) return;
     const idRuta = stay.uuid ?? stay.id;
     const v = this.quoteForm.getRawValue();
-    this.dateError = this.bookings.validation(stay, v.checkIn ?? '', v.checkOut ?? '', v.guests ?? 0);
+    this.dateError = stay.uuid ? (dateRangeError(v.checkIn ?? '', v.checkOut ?? '') || ((v.guests ?? 0) < 1 || (v.guests ?? 0) > stay.capacity ? 'El número de huéspedes supera la capacidad o no es válido.' : '')) : this.bookings.validation(stay, v.checkIn ?? '', v.checkOut ?? '', v.guests ?? 0);
     if (this.dateError || this.quoteForm.invalid) return;
     if (!this.session.isAuthenticated()) {
       this.toast.show('Inicia sesión como huésped para continuar.', 'info');
