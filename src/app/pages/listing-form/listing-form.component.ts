@@ -1,135 +1,185 @@
-import { FieldValidationDirective } from '../../shared/field-validation.directive';
+﻿import { FieldValidationDirective } from '../../shared/field-validation.directive';
 import { requiredText, lettersOnly, positiveInteger } from '../../core/models/form-rules';
-import { MapsService } from '../../core/services/maps.service';
-import { GeoPoint } from '../../core/models/optional.models';
-import { LocationMapComponent } from '../../shared/location-map/location-map.component';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Listing, ListingStatus } from '../../core/models/marketplace.models';
-import { CatalogService } from '../../core/services/catalog.service';
-import { SessionService } from '../../core/services/session.service';
+import { concatMap, from, map, of, switchMap, tap, toArray } from 'rxjs';
+import { PublicacionDatos, PublicacionesBackService } from '../../core/services/publicaciones-back.service';
 import { ToastService } from '../../core/services/toast.service';
 
-@Component({ selector: 'app-listing-form', imports: [FieldValidationDirective, ReactiveFormsModule, FormsModule, RouterLink, LocationMapComponent], templateUrl: './listing-form.component.html', styleUrl: './listing-form.component.css' })
+interface FotoNueva {
+  archivo: File;
+  vista: string;
+}
+
+@Component({ selector: 'app-listing-form', imports: [FieldValidationDirective, ReactiveFormsModule, RouterLink], templateUrl: './listing-form.component.html', styleUrl: './listing-form.component.css' })
 export class ListingFormComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly api = inject(PublicacionesBackService);
+  private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
+
+  readonly editingId: string | null = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  // Si la publicación se crea y luego falla algo, los reintentos la editan en vez de duplicarla.
+  private idGuardado: string | null = this.editingId;
+
   readonly step = signal(1);
-  readonly maps = inject(MapsService);
-  readonly mapResults = signal<GeoPoint[]>([]);
-  readonly mapPoint = signal<GeoPoint | null>(null);
-  mapError = '';
-  mapBusy = false;
-  async locate(): Promise<void> {
-    this.mapBusy = true; this.mapError = '';
-    try { this.mapResults.set(await this.maps.searchAddress(this.form.value.city ?? '', '', this.form.value.address ?? '')); if (!this.mapResults().length) this.mapError = 'No encontramos esa dirección. Revisa la ciudad y la ubicación.'; }
-    catch (e) { this.mapError = e instanceof Error && !('status' in e) ? e.message : 'No pudimos buscar la ubicación. Revisa la conexión y la configuración del mapa.'; }
-    finally { this.mapBusy = false; }
-  }
-  readonly extraImages = signal<string[]>([]);
-  imageUrl = '';
-  imageError = '';
-  uploading = false;
-  readonly fields = [['title', 'description', 'city', 'address', 'type', 'image'], ['capacity', 'bedrooms', 'beds', 'bathrooms'], ['rules'], ['price', 'cleaningFee', 'cancellationPolicy']];
-  goStep(target: number): void {
-    if (target > this.step()) {
-      for (let n = 1; n < target; n++) {
-        const controls = this.fields[n - 1].map(key => this.form.get(key)!);
-        controls.forEach(c => c.markAsTouched());
-        if (controls.some(c => c.invalid)) { this.step.set(n); return; }
-      }
-    }
-    this.step.set(target);
-  }
-  addImage(): void {
-    const url = this.imageUrl.trim();
-    if (!/^https?:\/\//i.test(url)) { this.imageError = 'Escribe un enlace HTTP o HTTPS de una imagen.'; return; }
-    if (this.extraImages().includes(url) || url === this.form.value.image) { this.imageError = 'Esta imagen ya está agregada.'; return; }
-    if (!this.form.value.image) this.form.controls.image.setValue(url); else this.extraImages.update(a => [...a, url]); this.imageUrl = ''; this.imageError = '';
-  }
-  removeImage(index: number): void { this.extraImages.update(a => a.filter((_, i) => i !== index)); }
-  async upload(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    this.uploading = true; this.imageError = '';
-    try {
-      for (const file of Array.from(input.files ?? [])) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { this.imageError = 'Usa imágenes JPG, PNG o WebP de hasta 5 MB cada una.'; continue; }
-        const data = await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file); });
-        if (!this.form.value.image || this.form.value.image === 'images/interior-purple.svg') this.form.controls.image.setValue(data);
-        else this.extraImages.update(a => [...new Set([...a, data])]);
-      }
-    } catch { this.imageError = 'No pudimos leer la imagen. Intenta seleccionarla nuevamente.'; }
-    finally { input.value = ''; this.uploading = false; }
-  }
-  readonly editingId: number | null;
+  readonly guardando = signal(false);
+  readonly cargando = signal(false);
+  readonly imageError = signal('');
+  readonly existentes = signal<string[]>([]);
+  readonly nuevas = signal<FotoNueva[]>([]);
+
+  readonly tipos = [
+    { valor: 'APARTAMENTO', nombre: 'Apartamento' },
+    { valor: 'CASA', nombre: 'Casa' },
+    { valor: 'HABITACION_PRIVADA', nombre: 'Habitación privada' },
+    { valor: 'HABITACION_COMPARTIDA', nombre: 'Habitación compartida' },
+    { valor: 'OTRO', nombre: 'Otro' }
+  ];
   readonly amenityOptions = ['Wi-Fi', 'Cocina', 'Parqueadero', 'Piscina', 'Aire acondicionado', 'Lavadora', 'Espacio de trabajo', 'Jardín'];
   readonly selectedAmenities = signal<string[]>(['Wi-Fi', 'Cocina']);
+
   readonly form = this.fb.group({
     title: ['', [Validators.required, requiredText(8)]],
     description: ['', [Validators.required, requiredText(30)]],
     city: ['', [Validators.required, lettersOnly]],
     address: ['', [Validators.required, requiredText()]],
-    type: ['Apartamento', Validators.required],
+    type: ['APARTAMENTO', Validators.required],
     capacity: [2, [Validators.required, positiveInteger]],
-    bedrooms: [1, [Validators.required, positiveInteger]],
-    beds: [1, [Validators.required, positiveInteger]],
-    bathrooms: [1, [Validators.required, positiveInteger]],
     price: [200000, [Validators.required, Validators.min(1)]],
-    cleaningFee: [40000, [Validators.required, Validators.min(0)]],
-    rules: ['No fumar\nNo se permiten fiestas', [Validators.required, requiredText()]],
-    instantBooking: [true],
-    cancellationPolicy: ['Flexible: devolución total hasta 48 horas antes de la llegada.', Validators.required],
-    image: ['', Validators.required]
+    rules: ['No fumar\nNo se permiten fiestas', [Validators.required, requiredText()]]
   });
 
-  constructor(route: ActivatedRoute, private readonly catalog: CatalogService, private readonly session: SessionService, private readonly router: Router, private readonly toast: ToastService) {
-    this.editingId = route.snapshot.paramMap.has('id') ? Number(route.snapshot.paramMap.get('id')) : null;
+  readonly fields = [['title', 'description', 'city', 'address', 'type'], ['capacity'], ['price', 'rules']];
+
+  constructor() {
     if (this.editingId) {
-      const listing = this.catalog.getById(this.editingId);
-      if (!listing || listing.hostId !== this.session.currentUser()?.id) { this.router.navigate(['/anfitrion/alojamientos']); return; }
-      if (listing) {
-        this.extraImages.set(listing.images.filter(url => url !== listing.image));
-        this.form.patchValue({ ...listing, rules: listing.rules.join('\n') });
-        this.selectedAmenities.set([...listing.amenities]);
-      }
+      this.cargando.set(true);
+      this.api.mias().subscribe({
+        next: (lista) => {
+          const publicacion = lista.find((item) => item.id === this.editingId);
+          if (!publicacion) {
+            this.router.navigate(['/anfitrion/alojamientos']);
+            return;
+          }
+          this.form.patchValue({
+            title: publicacion.titulo,
+            description: publicacion.descripcion,
+            city: publicacion.ciudad,
+            address: publicacion.ubicacionTextual,
+            type: publicacion.tipo,
+            capacity: publicacion.capacidad,
+            price: publicacion.precioNoche,
+            rules: (publicacion.reglas ?? []).join('\n')
+          });
+          this.selectedAmenities.set([...(publicacion.servicios ?? [])]);
+          this.existentes.set([...(publicacion.imagenes ?? [])]);
+          this.cargando.set(false);
+        },
+        error: () => this.router.navigate(['/anfitrion/alojamientos'])
+      });
     }
   }
 
-  toggleAmenity(amenity: string): void {
-    this.selectedAmenities.update((items) => items.includes(amenity) ? items.filter((item) => item !== amenity) : [...items, amenity]);
+  goStep(target: number): void {
+    if (target > this.step()) {
+      for (let n = 1; n < target; n++) {
+        const controls = this.fields[n - 1].map((key) => this.form.get(key)!);
+        controls.forEach((c) => c.markAsTouched());
+        if (controls.some((c) => c.invalid)) { this.step.set(n); return; }
+      }
+    }
+    this.step.set(target);
   }
 
   next(): void {
-    if (this.step() < 4) this.goStep(this.step() + 1);
+    if (this.step() < 3) this.goStep(this.step() + 1);
   }
 
   previous(): void {
     if (this.step() > 1) this.step.update((value) => value - 1);
   }
 
-  save(status: ListingStatus): void {
-    if (this.uploading) return;
+  toggleAmenity(amenity: string): void {
+    this.selectedAmenities.update((items) => items.includes(amenity) ? items.filter((item) => item !== amenity) : [...items, amenity]);
+  }
+
+  agregarFotos(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.imageError.set('');
+    for (const file of Array.from(input.files ?? [])) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+        this.imageError.set('Usa imágenes JPG, PNG o WebP de hasta 5 MB cada una.');
+        continue;
+      }
+      this.nuevas.update((lista) => [...lista, { archivo: file, vista: URL.createObjectURL(file) }]);
+    }
+    input.value = '';
+  }
+
+  quitarFoto(index: number): void {
+    const foto = this.nuevas()[index];
+    if (foto) { URL.revokeObjectURL(foto.vista); }
+    this.nuevas.update((lista) => lista.filter((_, i) => i !== index));
+  }
+
+  save(publicar: boolean): void {
+    if (this.guardando()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      const invalidStep = this.fields.findIndex(keys => keys.some(k => this.form.get(k)?.invalid));
+      const invalidStep = this.fields.findIndex((keys) => keys.some((k) => this.form.get(k)?.invalid));
       if (invalidStep >= 0) this.step.set(invalidStep + 1);
       this.toast.show('Completa los campos obligatorios antes de guardar.', 'warning');
       return;
     }
-    const value = this.form.getRawValue();
-    const existing = this.editingId ? this.catalog.getById(this.editingId) : undefined;
-    const listing: Listing = {
-      id: this.editingId ?? Date.now(), hostId: this.session.currentUser()?.id ?? 2,
-      title: value.title?.trim() ?? '', description: value.description?.trim() ?? '', city: value.city?.trim() ?? '', address: value.address?.trim() ?? '', type: value.type ?? 'Apartamento',
-      capacity: value.capacity ?? 1, bedrooms: value.bedrooms ?? 1, beds: value.beds ?? 1, bathrooms: value.bathrooms ?? 1,
-      price: value.price ?? 1, cleaningFee: value.cleaningFee ?? 0, amenities: this.selectedAmenities(), rules: (value.rules ?? '').split('\n').filter(Boolean),
-      image: value.image ?? 'images/interior-purple.svg', images: [...new Set([value.image!.trim(), ...this.extraImages()])],
-      rating: existing?.rating ?? 0, reviewsCount: existing?.reviewsCount ?? 0, status, instantBooking: value.instantBooking ?? true,
-      cancellationPolicy: value.cancellationPolicy ?? ''
+    if (publicar && this.existentes().length + this.nuevas().length === 0) {
+      this.step.set(2);
+      this.toast.show('Agrega al menos una foto para publicar.', 'warning');
+      return;
+    }
+    const v = this.form.getRawValue();
+    const datos: PublicacionDatos = {
+      titulo: (v.title ?? '').trim(),
+      descripcion: (v.description ?? '').trim(),
+      ubicacionTextual: (v.address ?? '').trim(),
+      ciudad: (v.city ?? '').trim(),
+      tipo: v.type ?? 'APARTAMENTO',
+      capacidad: v.capacity ?? 1,
+      precioNoche: v.price ?? 1,
+      servicios: this.selectedAmenities(),
+      reglas: (v.rules ?? '').split('\n').map((regla) => regla.trim()).filter(Boolean)
     };
-    try { this.catalog.save(listing); } catch (e) { this.toast.show((e as Error).message, 'warning'); return; }
-    const point = this.mapPoint(); if (point) this.maps.save(listing.id, point);
-    this.toast.show(status === 'BORRADOR' ? 'El borrador fue guardado.' : 'La publicación fue enviada a revisión.');
-    this.router.navigate(['/anfitrion/alojamientos']);
+    this.guardando.set(true);
+    const guardar$ = this.idGuardado ? this.api.editar(this.idGuardado, datos) : this.api.crear(datos);
+    guardar$.pipe(
+      tap((publicacion) => { this.idGuardado = publicacion.id; }),
+      switchMap((publicacion) => from(this.nuevas().map((foto) => foto.archivo)).pipe(
+        concatMap((archivo) => this.api.subirImagen(publicacion.id, archivo).pipe(
+          tap(() => this.nuevas.update((lista) => lista.filter((foto) => foto.archivo !== archivo)))
+        )),
+        toArray(),
+        map(() => publicacion.id)
+      )),
+      switchMap((id) => publicar ? this.api.activar(id) : of(null))
+    ).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.toast.show(publicar ? 'La publicación está activa.' : 'El borrador fue guardado.');
+        this.router.navigate(['/anfitrion/alojamientos']);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.guardando.set(false);
+        this.toast.show(this.mensajeDeError(error), 'warning');
+      }
+    });
+  }
+
+  private mensajeDeError(error: HttpErrorResponse): string {
+    if (error.status === 0) { return 'No se pudo conectar con el servidor. Revisa que el back esté corriendo.'; }
+    if (error.status === 400 && typeof error.error === 'string' && error.error !== '') { return error.error; }
+    if (error.status === 401 || error.status === 403) { return 'Revisa los datos del formulario o vuelve a iniciar sesión.'; }
+    return 'No se pudo guardar la publicación. Intenta de nuevo.';
   }
 }
