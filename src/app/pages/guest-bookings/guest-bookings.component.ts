@@ -1,43 +1,113 @@
-import { FieldValidationDirective } from '../../shared/field-validation.directive';
+﻿import { FieldValidationDirective } from '../../shared/field-validation.directive';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Booking } from '../../core/models/marketplace.models';
-import { BookingService } from '../../core/services/booking.service';
+import { localToday } from '../../core/models/date-rules';
+import { Listing } from '../../core/models/marketplace.models';
 import { CatalogService } from '../../core/services/catalog.service';
-import { SessionService } from '../../core/services/session.service';
+import { ReservasBackService } from '../../core/services/reservas-back.service';
 import { ToastService } from '../../core/services/toast.service';
+
+interface ReservaVista {
+  id: string;
+  codigo: string;
+  estado: string;
+  fechaLlegada: string;
+  fechaSalida: string;
+  total: number;
+  publicacion: Listing | null;
+}
 
 @Component({ selector: 'app-guest-bookings', imports: [FieldValidationDirective, CurrencyPipe, DatePipe, FormsModule, RouterLink], templateUrl: './guest-bookings.component.html', styleUrl: './guest-bookings.component.css' })
 export class GuestBookingsComponent {
+  private readonly reservas = inject(ReservasBackService);
+  private readonly catalog = inject(CatalogService);
+  private readonly toast = inject(ToastService);
+
+  readonly today = localToday();
   readonly tab = signal<'upcoming' | 'history'>('upcoming');
-  readonly cancelTarget = signal<Booking | null>(null);
-  readonly reviewTarget = signal<Booking | null>(null);
+  readonly items = signal<ReservaVista[]>([]);
+  readonly cargando = signal(true);
+  readonly errorCarga = signal('');
+  readonly procesando = signal(false);
+  readonly cancelTarget = signal<ReservaVista | null>(null);
   cancelReason = '';
-  reviewText = '';
-  reviewRating = 5;
-  readonly visible = computed(() => this.bookings.bookings().filter((item) => item.guestId === this.session.currentUser()?.id && (this.tab() === 'upcoming' ? ['CONFIRMADA', 'EN_REVISION'].includes(item.status) : !['CONFIRMADA', 'EN_REVISION'].includes(item.status))));
 
-  constructor(readonly bookings: BookingService, readonly catalog: CatalogService, private readonly session: SessionService, private readonly toast: ToastService) {}
+  readonly visible = computed(() => this.items().filter((item) => this.esProxima(item) === (this.tab() === 'upcoming')));
 
-  listing(id: number) { return this.catalog.getById(id); }
-
-  confirmCancel(): void {
-    const booking = this.cancelTarget();
-    if (!booking || !this.cancelReason.trim()) return;
-    this.bookings.cancel(booking.id);
-    this.cancelTarget.set(null);
-    this.cancelReason = '';
-    this.toast.show('La reserva fue cancelada y el periodo quedó liberado.', 'warning');
+  constructor() {
+    this.cargar();
   }
 
-  publishReview(): void {
-    const booking = this.reviewTarget();
-    if (!booking || !this.reviewText.trim()) return;
-    try { this.catalog.addReview(booking.id, this.reviewRating, this.reviewText); } catch (e) { this.toast.show((e as Error).message, 'warning'); return; }
-    this.reviewTarget.set(null);
-    this.reviewText = '';
-    this.toast.show('Tu reseña fue publicada.');
+  private esProxima(item: ReservaVista): boolean {
+    return ['PENDIENTE', 'CONFIRMADA'].includes(item.estado) && item.fechaSalida > localToday();
+  }
+
+  estadoMostrado(item: ReservaVista): string {
+    return item.estado === 'CONFIRMADA' && item.fechaSalida <= localToday() ? 'COMPLETADA' : item.estado;
+  }
+
+  reembolsoEstimado(item: ReservaVista): number {
+    const llegada = new Date(`${item.fechaLlegada}T12:00:00`).getTime();
+    const hoy = new Date(`${localToday()}T12:00:00`).getTime();
+    const dias = Math.round((llegada - hoy) / 86400000);
+    return dias >= 3 ? item.total : 0;
+  }
+
+  cargar(): void {
+    this.cargando.set(true);
+    this.errorCarga.set('');
+    this.reservas.misReservas().subscribe({
+      next: (lista) => {
+        this.items.set(lista.map((r) => ({
+          id: r.id,
+          codigo: `LR-${r.id.slice(0, 8).toUpperCase()}`,
+          estado: r.estado,
+          fechaLlegada: r.fechaLlegada,
+          fechaSalida: r.fechaSalida,
+          total: r.total,
+          publicacion: null
+        })));
+        this.cargando.set(false);
+        for (const reserva of lista) {
+          this.catalog.obtenerDetalle(reserva.publicacionId).subscribe({
+            next: (publicacion) => this.items.update((actual) => actual.map((item) => item.id === reserva.id ? { ...item, publicacion } : item))
+          });
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargando.set(false);
+        this.errorCarga.set(this.mensajeDeError(error));
+      }
+    });
+  }
+
+  confirmCancel(): void {
+    const reserva = this.cancelTarget();
+    if (!reserva || !this.cancelReason.trim() || this.procesando()) return;
+    this.procesando.set(true);
+    this.reservas.cancelar(reserva.id, this.cancelReason.trim()).subscribe({
+      next: (cancelacion) => {
+        this.procesando.set(false);
+        this.cancelTarget.set(null);
+        this.cancelReason = '';
+        const devolucion = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(cancelacion.valorDevolucion);
+        this.toast.show(`La reserva fue cancelada. Devolución: ${devolucion}.`, 'warning');
+        this.cargar();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.procesando.set(false);
+        this.toast.show(this.mensajeDeError(error), 'warning');
+      }
+    });
+  }
+
+  private mensajeDeError(error: HttpErrorResponse): string {
+    if (error.status === 0) { return 'No se pudo conectar con el servidor. Revisa que el back esté corriendo.'; }
+    if (error.status === 400 && typeof error.error === 'string' && error.error !== '') { return error.error; }
+    if (error.status === 401 || error.status === 403) { return 'Tu sesión venció o los datos no son válidos. Vuelve a iniciar sesión.'; }
+    return 'No se pudo completar la operación. Intenta de nuevo.';
   }
 }
