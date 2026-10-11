@@ -25,6 +25,11 @@ export interface ReservaBack {
   total: number;
 }
 
+export interface ReservaRecibidaBack extends ReservaBack {
+  tituloPublicacion: string;
+  huespedNombre: string;
+}
+
 export interface PagoBack {
   estado?: string;
 }
@@ -56,6 +61,10 @@ export class ReservasBackService {
 
   misReservas(): Observable<ReservaBack[]> {
     return this.http.get<ReservaBack[]>(`${API_URL}/api/reservas/mias`);
+  }
+
+  recibidas(): Observable<ReservaRecibidaBack[]> {
+    return this.http.get<ReservaRecibidaBack[]>(`${API_URL}/api/reservas/recibidas`);
   }
 
   cancelar(reservaId: string, motivo: string): Observable<CancelacionBack> {
