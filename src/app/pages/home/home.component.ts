@@ -1,8 +1,9 @@
-import { FieldValidationDirective } from '../../shared/field-validation.directive';
+﻿import { FieldValidationDirective } from '../../shared/field-validation.directive';
 import { addDays, dateRangeError, localToday } from '../../core/models/date-rules';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { Listing } from '../../core/models/marketplace.models';
 import { CatalogService } from '../../core/services/catalog.service';
 import { PropertyCardComponent } from '../../shared/property-card/property-card.component';
 
@@ -14,10 +15,15 @@ export class HomeComponent {
 
   private readonly fb = inject(FormBuilder);
   private readonly catalog = inject(CatalogService);
-  readonly featured = this.catalog.search({}).slice(0, 3);
+  readonly featured = signal<Listing[]>([]);
   readonly searchForm = this.fb.group({ city: [''], checkIn: [''], checkOut: [''], guests: [2] });
 
-  constructor(private readonly router: Router) {}
+  constructor(private readonly router: Router) {
+    this.catalog.buscarEnBack({}).subscribe({
+      next: (lista) => this.featured.set(lista.slice(0, 3)),
+      error: () => this.featured.set([])
+    });
+  }
 
   search(): void {
     this.searchForm.markAllAsTouched();
