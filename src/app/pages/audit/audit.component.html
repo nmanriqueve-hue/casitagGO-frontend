@@ -1,4 +1,14 @@
-<section class="page-shell"><div class="container">
-  <div class="page-heading"><div><p class="eyebrow">Trazabilidad</p><h1>Eventos de auditoría</h1><p>Consulta quién realizó cada operación, cuándo y con qué resultado.</p></div><button class="btn btn-outline-brand" type="button" (click)="exportCsv()">Exportar CSV</button></div>
-  <div class="panel"><div class="panel-header audit-tools"><input class="form-control" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Buscar por actor, acción o entidad"><select class="form-select" [ngModel]="result()" (ngModelChange)="result.set($event)"><option>TODOS</option><option>EXITOSO</option><option>REVISIÓN</option><option>BLOQUEADO</option></select></div><div class="table-responsive"><table class="table app-table"><thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>@for (event of visible(); track event.id) { <tr><td>{{ event.date }}</td><td><strong>{{ event.actor }}</strong></td><td><code>{{ event.action }}</code></td><td>{{ event.entity }}</td><td><span class="status-pill" [class]="'status-pill ' + event.result">{{ event.result }}</span></td><td>{{ event.detail }}</td></tr> }</tbody></table></div></div>
+﻿<section class="page-shell"><div class="container">
+  <div class="page-heading"><div><p class="eyebrow">Trazabilidad</p><h1>Eventos de auditoría</h1><p>Consulta quién realizó cada operación, cuándo y con qué resultado.</p></div><button class="btn btn-outline-brand" type="button" [disabled]="visible().length === 0" (click)="exportCsv()">Exportar CSV</button></div>
+  <div class="panel"><div class="panel-header audit-tools"><input class="form-control" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Buscar por actor, acción o entidad"><select class="form-select" [ngModel]="result()" (ngModelChange)="result.set($event)">@for (item of resultados(); track item) { <option [value]="item">{{ item }}</option> }</select></div><div class="table-responsive"><table class="table app-table"><thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>
+    @if (cargando()) {
+      <tr><td colspan="6"><div class="empty-state">Cargando eventos...</div></td></tr>
+    } @else if (errorCarga()) {
+      <tr><td colspan="6"><div class="empty-state">{{ errorCarga() }}</div></td></tr>
+    } @else {
+      @for (evento of visible(); track evento.id) { <tr><td>{{ evento.creadoEn | date:'dd MMM yyyy HH:mm' }}</td><td><strong>{{ actor(evento) }}</strong></td><td><code>{{ evento.accion }}</code></td><td>{{ evento.entidad }}</td><td><span class="status-pill" [class]="'status-pill ' + evento.resultado">{{ evento.resultado }}</span></td><td>{{ detalle(evento) }}</td></tr> } @empty {
+        <tr><td colspan="6"><div class="empty-state">No hay eventos para este filtro.</div></td></tr>
+      }
+    }
+  </tbody></table></div></div>
 </div></section>

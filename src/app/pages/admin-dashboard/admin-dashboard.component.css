@@ -1,4 +1,4 @@
-.panel-header > span { color: var(--muted); font-size: .72rem; }
+﻿.panel-header > span { color: var(--muted); font-size: .72rem; }
 .dashboard-grid { display: grid; grid-template-columns: 1.4fr .8fr; gap: 22px; }
 .city-chart { display: grid; gap: 18px; }
 .city-chart > div { display: grid; grid-template-columns: 110px 1fr 30px; align-items: center; gap: 12px; font-size: .8rem; }
@@ -23,4 +23,4 @@
 @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } .admin-links { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .status-chart { grid-template-columns: 1fr; } .admin-links { grid-template-columns: 1fr; } }
 
-progress { width: 100%; height: 18px; accent-color: #7040a0; } .live-donut { width: 160px; flex-shrink: 0; } .live-donut text { font-size: 7px; fill: #452163; }
+progress { width: 100%; height: 18px; accent-color: #7040a0; } .live-donut { width: 130px; flex-shrink: 0; } .live-donut text { font-size: 7px; fill: #452163; }

@@ -1,26 +1,80 @@
-import { FieldValidationDirective } from '../../shared/field-validation.directive';
-import { Component, computed, signal } from '@angular/core';
+﻿import { FieldValidationDirective } from '../../shared/field-validation.directive';
+import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../../core/services/admin.service';
+import { AdminBackService, EventoAuditoriaBack } from '../../core/services/admin-back.service';
 import { ToastService } from '../../core/services/toast.service';
 
-@Component({ selector: 'app-audit', imports: [FieldValidationDirective, FormsModule], templateUrl: './audit.component.html', styleUrl: './audit.component.css' })
+@Component({ selector: 'app-audit', imports: [FieldValidationDirective, FormsModule, DatePipe], templateUrl: './audit.component.html', styleUrl: './audit.component.css' })
 export class AuditComponent {
+  private readonly api = inject(AdminBackService);
+  private readonly toast = inject(ToastService);
+
   readonly search = signal('');
   readonly result = signal('TODOS');
-  readonly visible = computed(() => this.admin.auditEvents.filter((event) => `${event.actor} ${event.action} ${event.entity} ${event.detail}`.toLowerCase().includes(this.search().toLowerCase()) && (this.result() === 'TODOS' || event.result === this.result())));
+  readonly eventos = signal<EventoAuditoriaBack[]>([]);
+  readonly cargando = signal(true);
+  readonly errorCarga = signal('');
 
-  constructor(readonly admin: AdminService, private readonly toast: ToastService) {}
+  readonly resultados = computed(() => ['TODOS', ...new Set(this.eventos().map((evento) => evento.resultado))]);
+  readonly visible = computed(() => {
+    const texto = this.search().trim().toLowerCase();
+    return this.eventos().filter((evento) => (this.result() === 'TODOS' || evento.resultado === this.result()) && (!texto || this.textoDe(evento).includes(texto)));
+  });
+
+  constructor() {
+    this.api.auditoria().subscribe({
+      next: (lista) => {
+        this.eventos.set([...lista].sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? '')));
+        this.cargando.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargando.set(false);
+        this.errorCarga.set(this.mensajeDeError(error));
+      }
+    });
+  }
+
+  actor(evento: EventoAuditoriaBack): string {
+    return evento.usuarioId ? evento.usuarioId.slice(0, 8) : 'Sistema';
+  }
+
+  detalle(evento: EventoAuditoriaBack): string {
+    const datos = evento.detalle;
+    if (!datos) { return ''; }
+    return Object.entries(datos).map(([clave, valor]) => `${clave}: ${typeof valor === 'object' ? JSON.stringify(valor) : String(valor)}`).join(' · ');
+  }
+
+  private textoDe(evento: EventoAuditoriaBack): string {
+    return `${this.actor(evento)} ${evento.accion} ${evento.entidad} ${evento.resultado} ${this.detalle(evento)}`.toLowerCase();
+  }
 
   exportCsv(): void {
-    const header = 'fecha,actor,accion,entidad,resultado,detalle';
-    const rows = this.visible().map((event) => [event.date, event.actor, event.action, event.entity, event.result, event.detail].map((value) => `"${value}"`).join(','));
-    const url = URL.createObjectURL(new Blob([[header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' }));
+    const celda = (valor: string) => `"${valor.replace(/"/g, '""')}"`;
+    const encabezado = ['Fecha', 'Actor', 'Acción', 'Entidad', 'Resultado', 'Detalle'].map(celda).join(';');
+    const filas = this.visible().map((evento) => [
+      (evento.creadoEn ?? '').replace('T', ' ').slice(0, 16),
+      this.actor(evento),
+      evento.accion,
+      evento.entidad,
+      evento.resultado,
+      this.detalle(evento)
+    ].map(celda).join(';'));
+    const contenido = '\uFEFF' + [encabezado, ...filas].join('\r\n');
+    const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = 'auditoria-lumina.csv';
     link.click();
     URL.revokeObjectURL(url);
     this.toast.show('El registro de auditoría fue exportado.');
+  }
+
+  private mensajeDeError(error: HttpErrorResponse): string {
+    if (error.status === 0) { return 'No se pudo conectar con el servidor. Revisa que el back esté corriendo.'; }
+    if (error.status === 400 && typeof error.error === 'string' && error.error !== '') { return error.error; }
+    if (error.status === 401 || error.status === 403) { return 'Tu sesión venció o no tienes permiso. Vuelve a iniciar sesión.'; }
+    return 'No se pudieron cargar los eventos. Intenta de nuevo.';
   }
 }
