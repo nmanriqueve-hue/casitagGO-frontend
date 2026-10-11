@@ -1,4 +1,4 @@
-<section class="hero">
+﻿<section class="hero">
   <div class="container hero-grid">
     <div class="hero-copy">
       <p class="eyebrow">Alojamientos que se sienten cercanos</p>
@@ -27,7 +27,7 @@
     <a routerLink="/buscar">Ver todos →</a>
   </div>
   <div class="row g-4">
-    @for (listing of featured; track listing.id) { <div class="col-md-6 col-lg-4"><app-property-card [listing]="listing" /></div> }
+    @for (listing of featured(); track (listing.uuid ?? listing.id)) { <div class="col-md-6 col-lg-4"><app-property-card [listing]="listing" /></div> }
   </div>
 </section>
 
