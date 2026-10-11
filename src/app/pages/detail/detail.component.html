@@ -27,8 +27,8 @@
         @if (quote(); as amount) {
           <div class="quote-lines"><div><span>{{ amount.nights }} noches</span><span>{{ amount.base | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div>@if (amount.cleaning) { <div><span>Limpieza</span><span>{{ amount.cleaning | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div> }<div><span>Servicio</span><span>{{ amount.service | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div>@if (amount.extras) { <div><span>Servicio adicional</span><span>{{ amount.extras | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div> }@if (amount.discount) { <div class="discount"><span>Descuento semanal</span><span>-{{ amount.discount | currency:'COP':'symbol-narrow':'1.0-0' }}</span></div> }<div class="quote-total"><strong>Total</strong><strong>{{ amount.total | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div></div>
         }
-        @if (dateError) { <div class="alert alert-danger" role="alert">{{ dateError }}</div> }
-        <button class="btn btn-brand w-100" type="button" (click)="continueBooking()">Continuar con la reserva</button>
+        @if (dateError) { <div class="alert alert-danger" role="alert">{{ dateError }}</div> }@if (disponibilidad(); as disp) { @if (!disp.disponible) { <div class="alert alert-warning" role="alert">{{ disp.mensaje }}</div> } }
+        <button class="btn btn-brand w-100" type="button" [disabled]="disponibilidad()?.disponible === false" (click)="continueBooking()">Continuar con la reserva</button>
         <p class="policy">{{ stay.cancellationPolicy }}</p>
       </aside> }
     </div>
