@@ -1,20 +1,45 @@
-import { CurrencyPipe } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
-import { BookingStatus } from '../../core/models/marketplace.models';
-import { BookingService } from '../../core/services/booking.service';
-import { CatalogService } from '../../core/services/catalog.service';
-import { SessionService } from '../../core/services/session.service';
+﻿import { CurrencyPipe, DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, inject, signal } from '@angular/core';
+import { localToday } from '../../core/models/date-rules';
+import { ReservaRecibidaBack, ReservasBackService } from '../../core/services/reservas-back.service';
 
-@Component({ selector: 'app-host-bookings', imports: [CurrencyPipe], templateUrl: './host-bookings.component.html', styleUrl: './host-bookings.component.css' })
+@Component({ selector: 'app-host-bookings', imports: [CurrencyPipe, DatePipe], templateUrl: './host-bookings.component.html', styleUrl: './host-bookings.component.css' })
 export class HostBookingsComponent {
-  readonly filter = signal<'TODAS' | BookingStatus>('TODAS');
-  readonly hostListingIds;
-  readonly visible = computed(() => this.bookings.bookings().filter((booking) => this.hostListingIds.includes(booking.listingId) && (this.filter() === 'TODAS' || booking.status === this.filter())));
+  private readonly api = inject(ReservasBackService);
 
-  constructor(readonly bookings: BookingService, readonly catalog: CatalogService, session: SessionService) {
-    this.hostListingIds = this.catalog.hostListings(session.currentUser()?.id ?? 2).map((listing) => listing.id);
+  readonly filtros = ['TODAS', 'PENDIENTE', 'CONFIRMADA', 'COMPLETADA', 'CANCELADA'];
+  readonly filter = signal('TODAS');
+  readonly items = signal<ReservaRecibidaBack[]>([]);
+  readonly cargando = signal(true);
+  readonly errorCarga = signal('');
+  readonly visible = computed(() => this.items().filter((reserva) => this.filter() === 'TODAS' || this.estadoMostrado(reserva) === this.filter()));
+
+  constructor() {
+    this.api.recibidas().subscribe({
+      next: (lista) => {
+        this.items.set(lista);
+        this.cargando.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargando.set(false);
+        this.errorCarga.set(this.mensajeDeError(error));
+      }
+    });
   }
 
-  decide(id: number, listingId: number, status: 'CONFIRMADA' | 'CANCELADA'): void { const l = this.catalog.getById(listingId); if (l) this.bookings.hostDecision(id, l, status); }
-  listingTitle(id: number): string { return this.catalog.getById(id)?.title ?? 'Alojamiento'; }
+  codigo(reserva: ReservaRecibidaBack): string {
+    return `LR-${reserva.id.slice(0, 8).toUpperCase()}`;
+  }
+
+  estadoMostrado(reserva: ReservaRecibidaBack): string {
+    return reserva.estado === 'CONFIRMADA' && reserva.fechaSalida <= localToday() ? 'COMPLETADA' : reserva.estado;
+  }
+
+  private mensajeDeError(error: HttpErrorResponse): string {
+    if (error.status === 0) { return 'No se pudo conectar con el servidor. Revisa que el back esté corriendo.'; }
+    if (error.status === 400 && typeof error.error === 'string' && error.error !== '') { return error.error; }
+    if (error.status === 401 || error.status === 403) { return 'Tu sesión venció o no tienes permiso. Vuelve a iniciar sesión.'; }
+    return 'No se pudieron cargar las reservas. Intenta de nuevo.';
+  }
 }
