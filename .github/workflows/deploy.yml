@@ -4,13 +4,13 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: lumina-production
+  group: casitaGo-production
   cancel-in-progress: false
 jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, lumina-deploy]
+    runs-on: [self-hosted, linux, casitaGo-deploy]
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -p lumina up -d --build --wait
+      - run: docker compose -p casitaGo up -d --build --wait

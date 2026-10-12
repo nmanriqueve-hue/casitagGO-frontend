@@ -65,7 +65,7 @@ export class AuditComponent {
     const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'auditoria-lumina.csv';
+    link.download = 'auditoria-casitago.csv';
     link.click();
     URL.revokeObjectURL(url);
     this.toast.show('El registro de auditoría fue exportado.');
