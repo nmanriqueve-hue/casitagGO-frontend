@@ -23,9 +23,17 @@ export class RecoverComponent {
   });
 
   solicitar(): void {
-    this.intentoCorreo.set(true);
-    if (this.formCorreo.invalid) { this.formCorreo.markAllAsTouched(); return; }
-    this.correo = (this.formCorreo.value.email ?? '').trim();
+   this.intentoCorreo.set(true);
+
+const correoLimpio = (this.formCorreo.value.email ?? '').trim();
+this.formCorreo.patchValue({ email: correoLimpio });
+
+if (this.formCorreo.invalid) {
+  this.formCorreo.markAllAsTouched();
+  return;
+}
+
+this.correo = correoLimpio;
     this.authError.set('');
     this.enviando.set(true);
     this.session.solicitarRecuperacion(this.correo).subscribe({

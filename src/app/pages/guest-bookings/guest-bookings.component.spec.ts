@@ -8,13 +8,14 @@ import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from '@angular/platform-browser-dynamic/testing';
-import { Subject, of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GuestBookingsComponent } from './guest-bookings.component';
-import { CatalogService } from '../../core/services/catalog.service';
 import { ReservasBackService } from '../../core/services/reservas-back.service';
+import { CatalogService } from '../../core/services/catalog.service';
 import { ToastService } from '../../core/services/toast.service';
+import { Listing } from '../../core/models/marketplace.models';
 import { addDays, localToday } from '../../core/models/date-rules';
 
 try {
@@ -35,15 +36,39 @@ describe('GuestBookingsComponent', () => {
   let component: GuestBookingsComponent;
 
   let misReservas: ReturnType<typeof vi.fn>;
-  let obtenerDetalle: ReturnType<typeof vi.fn>;
   let cancelar: ReturnType<typeof vi.fn>;
-  let showToast: ReturnType<typeof vi.fn>;
+  let obtenerDetalle: ReturnType<typeof vi.fn>;
+  let mostrarToast: ReturnType<typeof vi.fn>;
 
-  let reservaFutura: any;
-  let reservaPasada: any;
-  let publicacion: any;
+  const hoy = () => localToday();
+  const fecha = (dias: number) => addDays(hoy(), dias);
 
-  const crearError = (
+  const alojamiento = (
+    id: number,
+    cambios: Record<string, unknown> = {}
+  ): Listing => ({
+    id,
+    title: `Alojamiento ${id}`,
+    city: 'Bogotá',
+    status: 'ACTIVA',
+    capacity: 4,
+    ...cambios
+  } as Listing);
+
+  const reserva = (
+    id: string,
+    cambios: Record<string, unknown> = {}
+  ) => ({
+    id,
+    publicacionId: `publicacion-${id}`,
+    estado: 'CONFIRMADA',
+    fechaLlegada: fecha(5),
+    fechaSalida: fecha(8),
+    total: 500000,
+    ...cambios
+  });
+
+  const errorHttp = (
     status: number,
     error: unknown = null
   ) => new HttpErrorResponse({ status, error });
@@ -61,7 +86,7 @@ describe('GuestBookingsComponent', () => {
         },
         {
           provide: ToastService,
-          useValue: { show: showToast }
+          useValue: { show: mostrarToast }
         }
       ]
     });
@@ -71,177 +96,297 @@ describe('GuestBookingsComponent', () => {
     );
   };
 
-  const seleccionarCancelacion = () => {
-    component.cancelTarget.set(component.items()[0]);
-    component.cancelReason = 'Cambio de planes';
+  const establecerReservas = (
+    ...reservas: ReturnType<typeof reserva>[]
+  ) => {
+    misReservas.mockReturnValue(of(reservas));
+  };
+
+  const seleccionarCancelacion = (id: string) => {
+    const seleccionada = component.items().find(
+      item => item.id === id
+    );
+
+    expect(seleccionada).toBeDefined();
+    component.cancelTarget.set(seleccionada!);
   };
 
   beforeEach(() => {
     TestBed.resetTestingModule();
 
-    reservaFutura = {
-      id: '12345678-aaaa-bbbb-cccc-123456789012',
-      publicacionId: 'publicacion-1',
-      fechaLlegada: addDays(localToday(), 5),
-      fechaSalida: addDays(localToday(), 8),
-      estado: 'CONFIRMADA',
-      total: 450000
-    };
-
-    reservaPasada = {
-      id: '87654321-aaaa-bbbb-cccc-123456789012',
-      publicacionId: 'publicacion-2',
-      fechaLlegada: addDays(localToday(), -8),
-      fechaSalida: addDays(localToday(), -5),
-      estado: 'CONFIRMADA',
-      total: 300000
-    };
-
-    publicacion = {
-      uuid: 'publicacion-1',
-      title: 'Apartamento de prueba',
-      status: 'ACTIVA',
-      capacity: 4
-    };
-
-    misReservas = vi.fn().mockReturnValue(
-      of([reservaFutura, reservaPasada])
-    );
-
-    obtenerDetalle = vi.fn().mockReturnValue(of(publicacion));
+    misReservas = vi.fn().mockReturnValue(of([]));
 
     cancelar = vi.fn().mockReturnValue(
-      of({ valorDevolucion: 450000 })
+      of({ valorDevolucion: 0 })
     );
 
-    showToast = vi.fn();
+    obtenerDetalle = vi.fn().mockReturnValue(
+      of(alojamiento(1))
+    );
+
+    mostrarToast = vi.fn();
   });
 
-  describe('Inicialización y carga', () => {
+  describe('Inicialización', () => {
     it('debe crear el componente', () => {
       crearComponente();
-
       expect(component).toBeTruthy();
-    });
-
-    it('debe consultar las reservas al iniciar', () => {
-      crearComponente();
-
-      expect(misReservas).toHaveBeenCalledTimes(1);
-    });
-
-    it('debe cargar las reservas recibidas', () => {
-      crearComponente();
-
-      expect(component.items()).toHaveLength(2);
     });
 
     it('debe iniciar en la pestaña de próximas reservas', () => {
       crearComponente();
-
       expect(component.tab()).toBe('upcoming');
     });
 
-    it('debe finalizar el estado de carga', () => {
+    it('debe iniciar sin reservas cuando el backend devuelve una lista vacía', () => {
       crearComponente();
-
-      expect(component.cargando()).toBe(false);
+      expect(component.items()).toEqual([]);
     });
 
-    it('debe iniciar sin errores de carga', () => {
+    it('debe iniciar sin errores', () => {
       crearComponente();
-
       expect(component.errorCarga()).toBe('');
     });
 
-    it('debe generar el código de reserva correctamente', () => {
+    it('debe iniciar sin procesamiento de cancelación', () => {
       crearComponente();
-
-      expect(component.items()[0].codigo).toBe('LR-12345678');
+      expect(component.procesando()).toBe(false);
     });
 
-    it('debe conservar el total de la reserva', () => {
+    it('debe iniciar sin reserva seleccionada para cancelar', () => {
       crearComponente();
-
-      expect(component.items()[0].total).toBe(450000);
+      expect(component.cancelTarget()).toBeNull();
     });
 
-    it('debe consultar el detalle de cada publicación', () => {
+    it('debe iniciar con motivo de cancelación vacío', () => {
       crearComponente();
-
-      expect(obtenerDetalle).toHaveBeenCalledWith('publicacion-1');
-      expect(obtenerDetalle).toHaveBeenCalledWith('publicacion-2');
+      expect(component.cancelReason).toBe('');
     });
 
-    it('debe asociar la publicación a la reserva', () => {
+    it('debe guardar la fecha actual', () => {
       crearComponente();
-
-      expect(component.items()[0].publicacion).toEqual(publicacion);
+      expect(component.today).toBe(hoy());
     });
 
-    it('debe permitir una lista vacía de reservas', () => {
-      misReservas.mockReturnValue(of([]));
+    it('debe consultar las reservas al crear el componente', () => {
+      crearComponente();
+      expect(misReservas).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Carga de reservas', () => {
+    it('debe cargar una reserva', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
 
-      expect(component.items()).toEqual([]);
-      expect(component.cargando()).toBe(false);
+      expect(component.items()).toHaveLength(1);
     });
 
-    it('debe mostrar un error cuando falla la carga', () => {
-      misReservas.mockReturnValue(
-        throwError(() => crearError(500))
+    it('debe cargar varias reservas', () => {
+      establecerReservas(
+        reserva('reserva1'),
+        reserva('reserva2'),
+        reserva('reserva3')
       );
 
       crearComponente();
 
-      expect(component.errorCarga()).not.toBe('');
+      expect(component.items()).toHaveLength(3);
+    });
+
+    it('debe generar el código de reserva con prefijo LR', () => {
+      establecerReservas(reserva('abcdefgh123456'));
+      crearComponente();
+
+      expect(component.items()[0].codigo).toBe('LR-ABCDEFGH');
+    });
+
+    it('debe conservar el estado de la reserva', () => {
+      establecerReservas(
+        reserva('abc12345', { estado: 'PENDIENTE' })
+      );
+
+      crearComponente();
+
+      expect(component.items()[0].estado).toBe('PENDIENTE');
+    });
+
+    it('debe conservar el valor total de la reserva', () => {
+      establecerReservas(
+        reserva('abc12345', { total: 750000 })
+      );
+
+      crearComponente();
+
+      expect(component.items()[0].total).toBe(750000);
+    });
+
+    it('debe conservar las fechas de la reserva', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: fecha(3),
+          fechaSalida: fecha(6)
+        })
+      );
+
+      crearComponente();
+
+      expect(component.items()[0].fechaLlegada).toBe(fecha(3));
+      expect(component.items()[0].fechaSalida).toBe(fecha(6));
+    });
+
+    it('debe consultar el alojamiento asociado', () => {
+      establecerReservas(reserva('abc12345'));
+      crearComponente();
+
+      expect(obtenerDetalle).toHaveBeenCalledWith(
+        'publicacion-abc12345'
+      );
+    });
+
+    it('debe asociar los datos del alojamiento a la reserva', () => {
+      establecerReservas(reserva('abc12345'));
+
+      obtenerDetalle.mockReturnValue(
+        of(alojamiento(5, { title: 'Casa en la playa' }))
+      );
+
+      crearComponente();
+
+      expect(component.items()[0].publicacion?.title).toBe(
+        'Casa en la playa'
+      );
+    });
+
+    it('debe asociar cada alojamiento con su reserva correspondiente', () => {
+      establecerReservas(
+        reserva('reserva1'),
+        reserva('reserva2')
+      );
+
+      obtenerDetalle.mockImplementation((id: string) =>
+        of(alojamiento(
+          id === 'publicacion-reserva1' ? 1 : 2
+        ))
+      );
+
+      crearComponente();
+
+      expect(component.items()[0].publicacion?.id).toBe(1);
+      expect(component.items()[1].publicacion?.id).toBe(2);
+    });
+
+    it('debe activar la carga mientras espera el backend', () => {
+      const pendiente = new Subject<
+        ReturnType<typeof reserva>[]
+      >();
+
+      misReservas.mockReturnValue(pendiente.asObservable());
+
+      crearComponente();
+
+      expect(component.cargando()).toBe(true);
+
+      pendiente.next([]);
+      pendiente.complete();
+
       expect(component.cargando()).toBe(false);
+    });
+
+    it('debe permitir recargar las reservas', () => {
+      crearComponente();
+
+      establecerReservas(reserva('nueva123'));
+      component.cargar();
+
+      expect(misReservas).toHaveBeenCalledTimes(2);
+      expect(component.items()).toHaveLength(1);
     });
   });
 
   describe('Pestañas y estados', () => {
-    it('debe mostrar reservas futuras confirmadas', () => {
+    it('debe mostrar reservas confirmadas futuras en próximas', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'CONFIRMADA',
+          fechaSalida: fecha(5)
+        })
+      );
+
       crearComponente();
 
       expect(component.visible()).toHaveLength(1);
-      expect(component.visible()[0].id).toBe(reservaFutura.id);
     });
 
-    it('debe mostrar el historial al cambiar de pestaña', () => {
+    it('debe mostrar reservas pendientes futuras en próximas', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'PENDIENTE',
+          fechaSalida: fecha(5)
+        })
+      );
+
+      crearComponente();
+
+      expect(component.visible()).toHaveLength(1);
+    });
+
+    it('debe excluir reservas canceladas de próximas', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'CANCELADA'
+        })
+      );
+
+      crearComponente();
+
+      expect(component.visible()).toEqual([]);
+    });
+
+    it('debe mostrar reservas canceladas en historial', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'CANCELADA'
+        })
+      );
+
       crearComponente();
       component.tab.set('history');
 
       expect(component.visible()).toHaveLength(1);
-      expect(component.visible()[0].id).toBe(reservaPasada.id);
     });
 
-    it('debe incluir reservas futuras pendientes', () => {
-      reservaFutura.estado = 'PENDIENTE';
+    it('debe mostrar reservas pasadas en historial', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: fecha(-8),
+          fechaSalida: fecha(-5)
+        })
+      );
+
       crearComponente();
+      component.tab.set('history');
 
       expect(component.visible()).toHaveLength(1);
     });
 
-    it('debe enviar reservas canceladas al historial', () => {
-      reservaFutura.estado = 'CANCELADA';
-      crearComponente();
+    it('debe mostrar COMPLETADA para una reserva confirmada finalizada', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'CONFIRMADA',
+          fechaSalida: fecha(-1)
+        })
+      );
 
-      expect(component.visible()).toHaveLength(0);
-
-      component.tab.set('history');
-
-      expect(component.visible()).toHaveLength(2);
-    });
-
-    it('debe mostrar una reserva pasada confirmada como completada', () => {
       crearComponente();
 
       expect(
-        component.estadoMostrado(component.items()[1])
+        component.estadoMostrado(component.items()[0])
       ).toBe('COMPLETADA');
     });
 
-    it('debe conservar el estado de una reserva futura', () => {
+    it('debe conservar CONFIRMADA para una reserva futura', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
 
       expect(
@@ -249,46 +394,59 @@ describe('GuestBookingsComponent', () => {
       ).toBe('CONFIRMADA');
     });
 
-    it('debe conservar el estado cancelado', () => {
-      reservaFutura.estado = 'CANCELADA';
+    it('debe conservar CANCELADA en el estado mostrado', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          estado: 'CANCELADA'
+        })
+      );
+
       crearComponente();
 
       expect(
         component.estadoMostrado(component.items()[0])
       ).toBe('CANCELADA');
     });
-
-    it('debe actualizar los resultados al cambiar de pestaña', () => {
-      crearComponente();
-
-      component.tab.set('history');
-      expect(component.visible()[0].id).toBe(reservaPasada.id);
-
-      component.tab.set('upcoming');
-      expect(component.visible()[0].id).toBe(reservaFutura.id);
-    });
   });
 
   describe('Reembolsos', () => {
-    it('debe calcular reembolso completo con cinco días de anticipación', () => {
+    it('debe devolver el total cuando faltan más de tres días', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: fecha(5),
+          total: 500000
+        })
+      );
+
       crearComponente();
 
       expect(
         component.reembolsoEstimado(component.items()[0])
-      ).toBe(450000);
+      ).toBe(500000);
     });
 
-    it('debe calcular reembolso completo con tres días de anticipación', () => {
-      reservaFutura.fechaLlegada = addDays(localToday(), 3);
+    it('debe devolver el total cuando faltan exactamente tres días', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: fecha(3),
+          total: 400000
+        })
+      );
+
       crearComponente();
 
       expect(
         component.reembolsoEstimado(component.items()[0])
-      ).toBe(450000);
+      ).toBe(400000);
     });
 
-    it('debe calcular reembolso cero con dos días de anticipación', () => {
-      reservaFutura.fechaLlegada = addDays(localToday(), 2);
+    it('no debe estimar reembolso cuando faltan dos días', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: fecha(2)
+        })
+      );
+
       crearComponente();
 
       expect(
@@ -296,186 +454,318 @@ describe('GuestBookingsComponent', () => {
       ).toBe(0);
     });
 
-    it('debe calcular reembolso cero el mismo día de llegada', () => {
-      reservaFutura.fechaLlegada = localToday();
+    it('no debe estimar reembolso el día de llegada', () => {
+      establecerReservas(
+        reserva('abc12345', {
+          fechaLlegada: hoy()
+        })
+      );
+
       crearComponente();
 
       expect(
         component.reembolsoEstimado(component.items()[0])
-      ).toBe(0);
-    });
-
-    it('debe calcular reembolso cero después de la llegada', () => {
-      crearComponente();
-
-      expect(
-        component.reembolsoEstimado(component.items()[1])
       ).toBe(0);
     });
   });
 
-  describe('Cancelación de reservas', () => {
-    it('no debe cancelar sin seleccionar una reserva', () => {
+  describe('Cancelaciones', () => {
+    it('no debe cancelar si no hay reserva seleccionada', () => {
       crearComponente();
 
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
       expect(cancelar).not.toHaveBeenCalled();
     });
 
-    it('no debe cancelar sin motivo', () => {
+    it('no debe cancelar si el motivo está vacío', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
 
-      component.cancelTarget.set(component.items()[0]);
+      seleccionarCancelacion('abc12345');
       component.cancelReason = '';
-
       component.confirmCancel();
 
       expect(cancelar).not.toHaveBeenCalled();
     });
 
-    it('no debe aceptar un motivo compuesto solo por espacios', () => {
+    it('no debe cancelar si el motivo solo contiene espacios', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
 
-      component.cancelTarget.set(component.items()[0]);
+      seleccionarCancelacion('abc12345');
       component.cancelReason = '   ';
+      component.confirmCancel();
+
+      expect(cancelar).not.toHaveBeenCalled();
+    });
+
+    it('debe enviar el identificador y motivo al backend', () => {
+      establecerReservas(reserva('abc12345'));
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
+      component.confirmCancel();
+
+      expect(cancelar).toHaveBeenCalledWith(
+        'abc12345',
+        'Cambio de planes'
+      );
+    });
+
+    it('debe eliminar espacios del motivo de cancelación', () => {
+      establecerReservas(reserva('abc12345'));
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = '  Cambio de planes  ';
+      component.confirmCancel();
+
+      expect(cancelar).toHaveBeenCalledWith(
+        'abc12345',
+        'Cambio de planes'
+      );
+    });
+
+    it('debe bloquear otra cancelación mientras procesa', () => {
+      establecerReservas(reserva('abc12345'));
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
+      component.procesando.set(true);
 
       component.confirmCancel();
 
       expect(cancelar).not.toHaveBeenCalled();
     });
 
-    it('debe enviar el identificador y motivo de cancelación', () => {
-      crearComponente();
-      seleccionarCancelacion();
+    it('debe activar procesamiento durante la cancelación', () => {
+      const pendiente = new Subject<{
+        valorDevolucion: number
+      }>();
 
+      cancelar.mockReturnValue(pendiente.asObservable());
+
+      establecerReservas(reserva('abc12345'));
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
-      expect(cancelar).toHaveBeenCalledWith(
-        reservaFutura.id,
-        'Cambio de planes'
-      );
+      expect(component.procesando()).toBe(true);
+
+      pendiente.next({ valorDevolucion: 500000 });
+      pendiente.complete();
+
+      expect(component.procesando()).toBe(false);
     });
 
-    it('debe eliminar espacios del motivo antes de enviarlo', () => {
+    it('debe limpiar la selección después de cancelar', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
-      seleccionarCancelacion();
-      component.cancelReason = '  Cambio de planes  ';
 
-      component.confirmCancel();
-
-      expect(cancelar).toHaveBeenCalledWith(
-        reservaFutura.id,
-        'Cambio de planes'
-      );
-    });
-
-    it('debe limpiar la reserva seleccionada después de cancelar', () => {
-      crearComponente();
-      seleccionarCancelacion();
-
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
       expect(component.cancelTarget()).toBeNull();
     });
 
     it('debe limpiar el motivo después de cancelar', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
-      seleccionarCancelacion();
 
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
       expect(component.cancelReason).toBe('');
     });
 
-    it('debe mostrar una notificación de cancelación', () => {
+    it('debe mostrar confirmación de cancelación', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
-      seleccionarCancelacion();
 
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
-      expect(showToast).toHaveBeenCalledWith(
+      expect(mostrarToast).toHaveBeenCalledWith(
         expect.stringContaining('La reserva fue cancelada'),
         'warning'
       );
     });
 
-    it('debe incluir la devolución en la notificación', () => {
-      crearComponente();
-      seleccionarCancelacion();
+    it('debe mostrar el valor de devolución', () => {
+      establecerReservas(reserva('abc12345'));
 
+      cancelar.mockReturnValue(
+        of({ valorDevolucion: 500000 })
+      );
+
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
-      expect(showToast).toHaveBeenCalledWith(
-        expect.stringContaining('Devolución:'),
+      expect(mostrarToast).toHaveBeenCalledWith(
+        expect.stringContaining('500.000'),
         'warning'
       );
     });
 
-    it('debe volver a cargar las reservas después de cancelar', () => {
+    it('debe recargar reservas después de cancelar', () => {
+      establecerReservas(reserva('abc12345'));
       crearComponente();
-      seleccionarCancelacion();
 
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
       expect(misReservas).toHaveBeenCalledTimes(2);
     });
+  });
 
-    it('debe finalizar el procesamiento después de cancelar', () => {
-      crearComponente();
-      seleccionarCancelacion();
-
-      component.confirmCancel();
-
-      expect(component.procesando()).toBe(false);
-    });
-
-    it('debe impedir cancelaciones duplicadas durante el procesamiento', () => {
-      const pendiente = new Subject<any>();
-      cancelar.mockReturnValue(pendiente.asObservable());
-
-      crearComponente();
-      seleccionarCancelacion();
-
-      component.confirmCancel();
-      component.confirmCancel();
-
-      expect(cancelar).toHaveBeenCalledTimes(1);
-      expect(component.procesando()).toBe(true);
-
-      pendiente.next({ valorDevolucion: 450000 });
-      pendiente.complete();
-
-      expect(component.procesando()).toBe(false);
-    });
-
-    it('debe mostrar el error del backend al cancelar', () => {
-      cancelar.mockReturnValue(
-        throwError(() => crearError(400, 'Cancelación no permitida'))
+  describe('Errores del backend', () => {
+    it('debe mostrar error de conexión al cargar reservas', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(0))
       );
 
       crearComponente();
-      seleccionarCancelacion();
 
+      expect(component.errorCarga()).toContain(
+        'No se pudo conectar con el servidor'
+      );
+    });
+
+    it('debe mostrar el mensaje del backend para error 400', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(400, 'Solicitud inválida'))
+      );
+
+      crearComponente();
+
+      expect(component.errorCarga()).toBe('Solicitud inválida');
+    });
+
+    it('debe mostrar error de sesión para estado 401', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(401))
+      );
+
+      crearComponente();
+
+      expect(component.errorCarga()).toContain(
+        'Tu sesión venció'
+      );
+    });
+
+    it('debe mostrar error de sesión para estado 403', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(403))
+      );
+
+      crearComponente();
+
+      expect(component.errorCarga()).toContain(
+        'Tu sesión venció'
+      );
+    });
+
+    it('debe mostrar error general para estado 500', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(500))
+      );
+
+      crearComponente();
+
+      expect(component.errorCarga()).toBe(
+        'No se pudo completar la operación. Intenta de nuevo.'
+      );
+    });
+
+    it('debe detener la carga cuando falla la consulta', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(500))
+      );
+
+      crearComponente();
+
+      expect(component.cargando()).toBe(false);
+    });
+
+    it('debe mostrar un aviso cuando falla la cancelación', () => {
+      establecerReservas(reserva('abc12345'));
+
+      cancelar.mockReturnValue(
+        throwError(() => errorHttp(500))
+      );
+
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
-      expect(showToast).toHaveBeenCalledWith(
-        'Cancelación no permitida',
+      expect(mostrarToast).toHaveBeenCalledWith(
+        'No se pudo completar la operación. Intenta de nuevo.',
         'warning'
       );
     });
 
-    it('debe finalizar el procesamiento si falla la cancelación', () => {
+    it('debe detener el procesamiento si falla la cancelación', () => {
+      establecerReservas(reserva('abc12345'));
+
       cancelar.mockReturnValue(
-        throwError(() => crearError(500))
+        throwError(() => errorHttp(500))
       );
 
       crearComponente();
-      seleccionarCancelacion();
 
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
       component.confirmCancel();
 
       expect(component.procesando()).toBe(false);
+    });
+
+    it('debe conservar la reserva seleccionada si falla la cancelación', () => {
+      establecerReservas(reserva('abc12345'));
+
+      cancelar.mockReturnValue(
+        throwError(() => errorHttp(500))
+      );
+
+      crearComponente();
+
+      seleccionarCancelacion('abc12345');
+      component.cancelReason = 'Cambio de planes';
+      component.confirmCancel();
+
+      expect(component.cancelTarget()?.id).toBe('abc12345');
+    });
+
+    it('debe limpiar el error al recargar correctamente', () => {
+      misReservas.mockReturnValue(
+        throwError(() => errorHttp(500))
+      );
+
+      crearComponente();
+
+      expect(component.errorCarga()).not.toBe('');
+
+      establecerReservas();
+      component.cargar();
+
+      expect(component.errorCarga()).toBe('');
+      expect(component.items()).toEqual([]);
+      expect(component.cargando()).toBe(false);
     });
   });
 });
