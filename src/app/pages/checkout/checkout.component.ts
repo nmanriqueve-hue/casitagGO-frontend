@@ -67,10 +67,14 @@ export class CheckoutComponent {
   private cotizar(item: Listing): void {
     const errorFechas = dateRangeError(this.bookingData.checkIn, this.bookingData.checkOut);
     if (errorFechas) { this.error.set(errorFechas); return; }
-    if (this.bookingData.guests < 1 || this.bookingData.guests > item.capacity) {
-      this.error.set('El número de huéspedes supera la capacidad o no es válido.');
-      return;
-    }
+    if (
+  !Number.isInteger(this.bookingData.guests) ||
+  this.bookingData.guests < 1 ||
+  this.bookingData.guests > item.capacity
+) {
+  this.error.set('El número de huéspedes supera la capacidad o no es válido.');
+  return;
+}
     this.reservas.cotizar(item.uuid ?? '', this.bookingData.checkIn, this.bookingData.checkOut, this.bookingData.extras).subscribe({
       next: (cotizacion) => this.cotizacion.set(cotizacion),
       error: (error: HttpErrorResponse) => this.error.set(this.mensajeDeError(error))
