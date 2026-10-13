@@ -15,6 +15,7 @@ export class AuditComponent {
   readonly result = signal('TODOS');
   readonly eventos = signal<EventoAuditoriaBack[]>([]);
   readonly cargando = signal(true);
+  readonly exportando = signal(false);
   readonly errorCarga = signal('');
 
   readonly resultados = computed(() => ['TODOS', ...new Set(this.eventos().map((evento) => evento.resultado))]);
@@ -51,24 +52,37 @@ export class AuditComponent {
   }
 
   exportCsv(): void {
-    const celda = (valor: string) => `"${valor.replace(/"/g, '""')}"`;
-    const encabezado = ['Fecha', 'Actor', 'Acción', 'Entidad', 'Resultado', 'Detalle'].map(celda).join(';');
-    const filas = this.visible().map((evento) => [
-      (evento.creadoEn ?? '').replace('T', ' ').slice(0, 16),
-      this.actor(evento),
-      evento.accion,
-      evento.entidad,
-      evento.resultado,
-      this.detalle(evento)
-    ].map(celda).join(';'));
-    const contenido = '\uFEFF' + [encabezado, ...filas].join('\r\n');
-    const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'auditoria-casitago.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-    this.toast.show('El registro de auditoría fue exportado.');
+    if (this.exportando()) { return; }
+    this.exportando.set(true);
+    this.api.exportarAuditoriaCsv().subscribe({
+      next: (csv) => {
+        const url = URL.createObjectURL(csv);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'auditoria-casitago.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+        this.exportando.set(false);
+        this.toast.show('El registro de auditoría fue exportado.');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportando.set(false);
+        this.avisarErrorExportar(error);
+      }
+    });
+  }
+
+  private async avisarErrorExportar(error: HttpErrorResponse): Promise<void> {
+    let mensaje = 'No se pudo exportar la auditoría. Intenta de nuevo.';
+    if (error.status === 0) {
+      mensaje = 'No se pudo conectar con el servidor. Revisa que el back esté corriendo.';
+    } else if (error.status === 400 && error.error instanceof Blob) {
+      const texto = await error.error.text();
+      if (texto) { mensaje = texto; }
+    } else if (error.status === 401 || error.status === 403) {
+      mensaje = 'Tu sesión venció o no tienes permiso. Vuelve a iniciar sesión.';
+    }
+    this.toast.show(mensaje, 'warning');
   }
 
   private mensajeDeError(error: HttpErrorResponse): string {

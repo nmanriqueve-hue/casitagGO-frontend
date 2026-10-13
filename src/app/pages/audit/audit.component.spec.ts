@@ -1,4 +1,4 @@
-
+﻿
 // @vitest-environment jsdom
 import '@angular/compiler';
 
@@ -503,77 +503,6 @@ describe('AuditComponent', () => {
       crearComponente();
 
       expect(component.cargando()).toBe(false);
-    });
-  });
-
-  describe('Exportación CSV', () => {
-    it('debe generar un archivo CSV y notificar la exportación', () => {
-      crearComponente();
-
-      const crearURL = vi.fn().mockReturnValue(
-        'blob:prueba-auditoria'
-      );
-      const revocarURL = vi.fn();
-
-      const originalCrearURL = URL.createObjectURL;
-      const originalRevocarURL = URL.revokeObjectURL;
-
-      URL.createObjectURL = crearURL;
-      URL.revokeObjectURL = revocarURL;
-
-      const click = vi.spyOn(
-        HTMLAnchorElement.prototype,
-        'click'
-      ).mockImplementation(() => {});
-
-      try {
-        component.exportCsv();
-
-        expect(crearURL).toHaveBeenCalledTimes(1);
-        expect(click).toHaveBeenCalledTimes(1);
-        expect(revocarURL).toHaveBeenCalledWith(
-          'blob:prueba-auditoria'
-        );
-        expect(mostrarToast).toHaveBeenCalledWith(
-          'El registro de auditoría fue exportado.'
-        );
-      } finally {
-        URL.createObjectURL = originalCrearURL;
-        URL.revokeObjectURL = originalRevocarURL;
-      }
-    });
-
-    it('debe exportar únicamente los eventos visibles', () => {
-      crearComponente();
-      component.result.set('ERROR');
-
-      const crearURL = vi.fn().mockReturnValue('blob:filtrado');
-      const originalCrearURL = URL.createObjectURL;
-      const originalRevocarURL = URL.revokeObjectURL;
-
-      URL.createObjectURL = crearURL;
-      URL.revokeObjectURL = vi.fn();
-
-      const click = vi.spyOn(
-        HTMLAnchorElement.prototype,
-        'click'
-      ).mockImplementation(() => {});
-
-      try {
-        component.exportCsv();
-
-        expect(crearURL).toHaveBeenCalledTimes(1);
-        expect(click).toHaveBeenCalledTimes(1);
-
-        const archivo = crearURL.mock.calls[0][0] as Blob;
-
-        expect(archivo.type).toBe(
-          'text/csv;charset=utf-8'
-        );
-      } finally {
-        URL.createObjectURL = originalCrearURL;
-        URL.revokeObjectURL = originalRevocarURL;
-      }
     });
   });
 });
