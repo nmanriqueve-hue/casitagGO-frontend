@@ -41,6 +41,10 @@ export class AdminBackService {
     return this.http.get<EventoAuditoriaBack[]>(`${API_URL}/api/admin/auditoria`);
   }
 
+  exportarAuditoriaCsv(): Observable<Blob> {
+    return this.http.get(`${API_URL}/api/admin/auditoria/exportar`, { responseType: 'blob' });
+  }
+
   reporteGestion(): Observable<Blob> {
     return this.http.get(`${API_URL}/api/admin/reportes/gestion`, { responseType: 'blob' });
   }
