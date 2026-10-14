@@ -98,7 +98,7 @@ describe('AuditComponent', () => {
       providers: [
         {
           provide: AdminBackService,
-          useValue: { auditoria }
+          useValue: { auditoria, usuarios: vi.fn().mockReturnValue(of([])) }
         },
         {
           provide: ToastService,

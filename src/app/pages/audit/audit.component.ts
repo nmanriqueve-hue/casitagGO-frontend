@@ -14,6 +14,7 @@ export class AuditComponent {
   readonly search = signal('');
   readonly result = signal('TODOS');
   readonly eventos = signal<EventoAuditoriaBack[]>([]);
+  readonly nombres = signal<Record<string, string>>({});
   readonly cargando = signal(true);
   readonly exportando = signal(false);
   readonly errorCarga = signal('');
@@ -35,10 +36,15 @@ export class AuditComponent {
         this.errorCarga.set(this.mensajeDeError(error));
       }
     });
+    this.api.usuarios().subscribe({
+      next: (lista) => this.nombres.set(Object.fromEntries(lista.map((usuario) => [usuario.id, usuario.nombre]))),
+      error: () => this.nombres.set({})
+    });
   }
 
   actor(evento: EventoAuditoriaBack): string {
-    return evento.usuarioId ? evento.usuarioId.slice(0, 8) : 'Sistema';
+    if (!evento.usuarioId) { return 'Sistema'; }
+    return this.nombres()[evento.usuarioId] ?? evento.usuarioId.slice(0, 8);
   }
 
   detalle(evento: EventoAuditoriaBack): string {
