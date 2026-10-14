@@ -40,6 +40,7 @@ describe('AuditComponent - exportar CSV desde el back', () => {
           provide: AdminBackService,
           useValue: {
             auditoria: vi.fn().mockReturnValue(of([])),
+            usuarios: vi.fn().mockReturnValue(of([])),
             exportarAuditoriaCsv
           }
         },
