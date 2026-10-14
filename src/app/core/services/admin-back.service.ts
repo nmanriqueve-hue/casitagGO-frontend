@@ -29,6 +29,26 @@ export interface EventoAuditoriaBack {
   detalle: Record<string, unknown> | null;
 }
 
+export interface UsuarioAdminBack {
+  id: string;
+  creadoEn: string | null;
+  nombre: string;
+  correo: string;
+  rol: string;
+  activo: boolean;
+  mfaHabilitado: boolean;
+  restringido: boolean;
+}
+
+export interface RestriccionBack {
+  id: string;
+  creadoEn: string | null;
+  usuarioId: string;
+  motivo: string;
+  creadoPorId: string;
+  activa: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminBackService {
   private readonly http = inject(HttpClient);
@@ -47,5 +67,17 @@ export class AdminBackService {
 
   reporteGestion(): Observable<Blob> {
     return this.http.get(`${API_URL}/api/admin/reportes/gestion`, { responseType: 'blob' });
+  }
+
+  usuarios(): Observable<UsuarioAdminBack[]> {
+    return this.http.get<UsuarioAdminBack[]>(`${API_URL}/api/admin/usuarios`);
+  }
+
+  restringirUsuario(id: string, motivo: string): Observable<RestriccionBack> {
+    return this.http.post<RestriccionBack>(`${API_URL}/api/admin/usuarios/${id}/restringir`, { motivo });
+  }
+
+  levantarRestriccion(id: string): Observable<RestriccionBack> {
+    return this.http.patch<RestriccionBack>(`${API_URL}/api/admin/usuarios/${id}/levantar-restriccion`, {});
   }
 }
