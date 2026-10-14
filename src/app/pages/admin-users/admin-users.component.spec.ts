@@ -1,18 +1,18 @@
-
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import '@angular/compiler';
 
-import { signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from '@angular/platform-browser-dynamic/testing';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminUsersComponent } from './admin-users.component';
-import { User } from '../../core/models/marketplace.models';
-import { AdminService } from '../../core/services/admin.service';
+import { UsuarioAdminBack } from '../../core/services/admin-back.service';
+import { AdminBackService } from '../../core/services/admin-back.service';
 import { ToastService } from '../../core/services/toast.service';
 
 try {
@@ -31,424 +31,273 @@ try {
 
 describe('AdminUsersComponent', () => {
   let component: AdminUsersComponent;
-  let usuarios: ReturnType<typeof signal<User[]>>;
-  let toggleUser: ReturnType<typeof vi.fn>;
+  let usuarios: ReturnType<typeof vi.fn>;
+  let restringirUsuario: ReturnType<typeof vi.fn>;
+  let levantarRestriccion: ReturnType<typeof vi.fn>;
   let mostrarToast: ReturnType<typeof vi.fn>;
 
   const crearUsuario = (
-    id: number,
-    name: string,
-    email: string,
-    active = true
-  ): User => ({
-    id,
-    name,
-    email,
-    active
-  } as User);
+    cambios: Partial<UsuarioAdminBack> = {}
+  ): UsuarioAdminBack => ({
+    id: 'usuario-1',
+    creadoEn: '2026-10-03T01:51:29.851921Z',
+    nombre: 'Hugo Huesped',
+    correo: 'hugo@correo.com',
+    rol: 'HUESPED',
+    activo: true,
+    mfaHabilitado: false,
+    restringido: false,
+    ...cambios
+  });
+
+  const crearError = (
+    status: number,
+    error: unknown = null
+  ): HttpErrorResponse => new HttpErrorResponse({ status, error });
 
   const crearComponente = (): void => {
     TestBed.configureTestingModule({
       providers: [
         {
-          provide: AdminService,
-          useValue: {
-            users: usuarios,
-            toggleUser
-          }
+          provide: AdminBackService,
+          useValue: { usuarios, restringirUsuario, levantarRestriccion }
         },
-        {
-          provide: ToastService,
-          useValue: {
-            show: mostrarToast
-          }
-        }
+        { provide: ToastService, useValue: { show: mostrarToast } }
       ]
     });
 
-    component = TestBed.runInInjectionContext(
-      () => new AdminUsersComponent(
-        TestBed.inject(AdminService),
-        TestBed.inject(ToastService)
-      )
-    );
+    component = TestBed.runInInjectionContext(() => new AdminUsersComponent());
   };
 
   beforeEach(() => {
     TestBed.resetTestingModule();
 
-    usuarios = signal<User[]>([]);
-    toggleUser = vi.fn();
+    usuarios = vi.fn().mockReturnValue(of([]));
+    restringirUsuario = vi.fn();
+    levantarRestriccion = vi.fn();
     mostrarToast = vi.fn();
   });
 
-  describe('Inicialización', () => {
-    it('debe crear el componente', () => {
+  describe('Carga de usuarios', () => {
+    it('debe cargar los usuarios del back', () => {
+      const lista = [crearUsuario(), crearUsuario({ id: 'usuario-2', nombre: 'Ana' })];
+      usuarios.mockReturnValue(of(lista));
+
       crearComponente();
 
-      expect(component).toBeTruthy();
+      expect(component.usuarios()).toEqual(lista);
+      expect(component.cargando()).toBe(false);
+      expect(component.errorCarga()).toBe('');
     });
 
-    it('debe iniciar con búsqueda vacía', () => {
+    it('debe avisar cuando no hay conexion con el servidor', () => {
+      usuarios.mockReturnValue(throwError(() => crearError(0)));
+
       crearComponente();
 
-      expect(component.search()).toBe('');
+      expect(component.cargando()).toBe(false);
+      expect(component.errorCarga()).toContain('No se pudo conectar');
     });
 
-    it('debe iniciar sin usuario seleccionado', () => {
+    it('debe mostrar el mensaje del back cuando es un error 400', () => {
+      usuarios.mockReturnValue(
+        throwError(() => crearError(400, 'Mensaje del back'))
+      );
+
       crearComponente();
 
-      expect(component.target()).toBeNull();
+      expect(component.errorCarga()).toBe('Mensaje del back');
     });
 
-    it('debe iniciar sin motivo', () => {
+    it('debe avisar que la sesion vencio cuando el back responde 403', () => {
+      usuarios.mockReturnValue(throwError(() => crearError(403)));
+
       crearComponente();
 
+      expect(component.errorCarga()).toContain('Vuelve a iniciar');
+    });
+
+    it('debe mostrar un mensaje generico ante otro error', () => {
+      usuarios.mockReturnValue(throwError(() => crearError(500)));
+
+      crearComponente();
+
+      expect(component.errorCarga()).toContain('No se pudieron cargar los usuarios');
+    });
+  });
+
+  describe('Busqueda', () => {
+    beforeEach(() => {
+      usuarios.mockReturnValue(
+        of([
+          crearUsuario({ id: 'u1', nombre: 'Hugo Huesped', correo: 'hugo@correo.com' }),
+          crearUsuario({ id: 'u2', nombre: 'Ana Anfitriona', correo: 'ana@correo.com' })
+        ])
+      );
+      crearComponente();
+    });
+
+    it('debe devolver todos los usuarios con la busqueda vacia', () => {
+      expect(component.visible().length).toBe(2);
+    });
+
+    it('debe filtrar por nombre', () => {
+      component.search.set('anfitriona');
+
+      expect(component.visible().map((u) => u.id)).toEqual(['u2']);
+    });
+
+    it('debe filtrar por correo sin importar mayusculas', () => {
+      component.search.set('HUGO@');
+
+      expect(component.visible().map((u) => u.id)).toEqual(['u1']);
+    });
+  });
+
+  describe('Estado y permisos', () => {
+    beforeEach(() => {
+      crearComponente();
+    });
+
+    it('debe mostrar RESTRINGIDA cuando tiene una restriccion activa', () => {
+      expect(component.estado(crearUsuario({ activo: false, restringido: true })))
+        .toBe('RESTRINGIDA');
+    });
+
+    it('debe mostrar ACTIVA cuando la cuenta esta activa', () => {
+      expect(component.estado(crearUsuario())).toBe('ACTIVA');
+    });
+
+    it('debe mostrar INACTIVA cuando la cuenta esta desactivada sin restriccion', () => {
+      expect(component.estado(crearUsuario({ activo: false }))).toBe('INACTIVA');
+    });
+
+    it('debe permitir restringir a un huesped activo', () => {
+      expect(component.puedeRestringir(crearUsuario())).toBe(true);
+    });
+
+    it('no debe permitir restringir a un administrador', () => {
+      expect(component.puedeRestringir(crearUsuario({ rol: 'ADMINISTRADOR' })))
+        .toBe(false);
+    });
+
+    it('no debe permitir restringir a quien ya esta restringido', () => {
+      expect(component.puedeRestringir(crearUsuario({ activo: false, restringido: true })))
+        .toBe(false);
+    });
+
+    it('no debe permitir restringir a una cuenta inactiva', () => {
+      expect(component.puedeRestringir(crearUsuario({ activo: false })))
+        .toBe(false);
+    });
+  });
+
+  describe('Ventana de confirmacion', () => {
+    beforeEach(() => {
+      crearComponente();
+    });
+
+    it('debe abrir con el usuario elegido y el motivo vacio', () => {
+      component.reason = 'motivo anterior';
+      const usuario = crearUsuario();
+
+      component.abrir(usuario);
+
+      expect(component.target()).toBe(usuario);
       expect(component.reason).toBe('');
     });
 
-    it('debe tener acceso al servicio de administración', () => {
-      crearComponente();
-
-      expect(component.admin).toBeDefined();
-    });
-
-    it('debe iniciar sin usuarios visibles si la lista está vacía', () => {
-      crearComponente();
-
-      expect(component.visible()).toEqual([]);
-    });
-  });
-
-  describe('Visualización de usuarios', () => {
-    it('debe mostrar un usuario', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      ]);
-
-      crearComponente();
-
-      expect(component.visible()).toHaveLength(1);
-    });
-
-    it('debe mostrar varios usuarios', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com'),
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com'),
-        crearUsuario(3, 'Laura Díaz', 'laura@correo.com')
-      ]);
-
-      crearComponente();
-
-      expect(component.visible()).toHaveLength(3);
-    });
-
-    it('debe conservar el orden de los usuarios', () => {
-      usuarios.set([
-        crearUsuario(3, 'Laura Díaz', 'laura@correo.com'),
-        crearUsuario(1, 'Ana López', 'ana@correo.com'),
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com')
-      ]);
-
-      crearComponente();
-
-      expect(component.visible().map(user => user.id)).toEqual([
-        3, 1, 2
-      ]);
-    });
-
-    it('debe conservar los nombres de los usuarios', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      ]);
-
-      crearComponente();
-
-      expect(component.visible()[0].name).toBe('Ana López');
-    });
-
-    it('debe conservar los correos electrónicos', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      ]);
-
-      crearComponente();
-
-      expect(component.visible()[0].email).toBe('ana@correo.com');
-    });
-
-    it('debe conservar el estado activo del usuario', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com', false)
-      ]);
-
-      crearComponente();
-
-      expect(component.visible()[0].active).toBe(false);
-    });
-
-    it('debe actualizar la lista cuando se agregan usuarios', () => {
-      crearComponente();
-
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      ]);
-
-      expect(component.visible()).toHaveLength(1);
-    });
-
-    it('debe actualizar la lista cuando se eliminan usuarios', () => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com'),
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com')
-      ]);
-
-      crearComponente();
-
-      usuarios.set([
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com')
-      ]);
-
-      expect(component.visible().map(user => user.id)).toEqual([2]);
-    });
-  });
-
-  describe('Búsqueda de usuarios', () => {
-    beforeEach(() => {
-      usuarios.set([
-        crearUsuario(1, 'Ana López', 'ana@correo.com'),
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com'),
-        crearUsuario(3, 'Laura Díaz', 'laura@gmail.com'),
-        crearUsuario(4, 'Pedro Gómez', 'pedro@gmail.com')
-      ]);
-
-      crearComponente();
-    });
-
-    it('debe mostrar todos los usuarios con búsqueda vacía', () => {
-      expect(component.visible()).toHaveLength(4);
-    });
-
-    it('debe buscar por nombre completo', () => {
-      component.search.set('Ana López');
-
-      expect(component.visible().map(user => user.id)).toEqual([1]);
-    });
-
-    it('debe buscar por nombre parcial', () => {
-      component.search.set('Carlos');
-
-      expect(component.visible().map(user => user.id)).toEqual([2]);
-    });
-
-    it('debe buscar por apellido', () => {
-      component.search.set('Díaz');
-
-      expect(component.visible().map(user => user.id)).toEqual([3]);
-    });
-
-    it('debe buscar por correo electrónico completo', () => {
-      component.search.set('pedro@gmail.com');
-
-      expect(component.visible().map(user => user.id)).toEqual([4]);
-    });
-
-    it('debe buscar por dominio del correo', () => {
-      component.search.set('gmail.com');
-
-      expect(component.visible().map(user => user.id)).toEqual([3, 4]);
-    });
-
-    it('debe ignorar mayúsculas y minúsculas', () => {
-      component.search.set('ANA');
-
-      expect(component.visible().map(user => user.id)).toEqual([1]);
-    });
-
-    it('debe buscar utilizando letras minúsculas', () => {
-      component.search.set('laura');
-
-      expect(component.visible().map(user => user.id)).toEqual([3]);
-    });
-
-    it('debe devolver una lista vacía si no encuentra usuarios', () => {
-      component.search.set('Usuario inexistente');
-
-      expect(component.visible()).toEqual([]);
-    });
-
-    it('debe actualizar los resultados al cambiar la búsqueda', () => {
-      component.search.set('Ana');
-      expect(component.visible()).toHaveLength(1);
-
-      component.search.set('Pedro');
-      expect(component.visible()).toHaveLength(1);
-      expect(component.visible()[0].id).toBe(4);
-    });
-
-    it('debe volver a mostrar todos los usuarios al limpiar la búsqueda', () => {
-      component.search.set('Carlos');
-      expect(component.visible()).toHaveLength(1);
-
-      component.search.set('');
-      expect(component.visible()).toHaveLength(4);
-    });
-
-    it('debe encontrar coincidencias en el nombre y el correo', () => {
-      component.search.set('correo.com');
-
-      expect(component.visible().map(user => user.id)).toEqual([1, 2]);
-    });
-  });
-
-  describe('Restricción de usuarios', () => {
-    beforeEach(() => {
-      crearComponente();
-    });
-
-    it('no debe modificar usuarios si no hay selección', () => {
-      component.toggle();
-
-      expect(toggleUser).not.toHaveBeenCalled();
-    });
-
-    it('debe restringir un usuario activo', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com', true)
-      );
-
-      component.toggle();
-
-      expect(toggleUser).toHaveBeenCalledWith(1);
-    });
-
-    it('debe utilizar el identificador seleccionado', () => {
-      component.target.set(
-        crearUsuario(25, 'Carlos Ruiz', 'carlos@correo.com')
-      );
-
-      component.toggle();
-
-      expect(toggleUser).toHaveBeenCalledWith(25);
-    });
-
-    it('debe llamar una vez al servicio de administración', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      );
-
-      component.toggle();
-
-      expect(toggleUser).toHaveBeenCalledTimes(1);
-    });
-
-    it('debe limpiar la selección después de restringir', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      );
-
-      component.toggle();
+    it('debe cerrar y limpiar el motivo al cancelar', () => {
+      component.abrir(crearUsuario());
+      component.reason = 'algo';
+
+      component.cancelar();
 
       expect(component.target()).toBeNull();
-    });
-
-    it('debe limpiar el motivo después de restringir', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com')
-      );
-      component.reason = 'Incumplimiento de normas';
-
-      component.toggle();
-
       expect(component.reason).toBe('');
-    });
-
-    it('debe mostrar una notificación de restricción', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com', true)
-      );
-
-      component.toggle();
-
-      expect(mostrarToast).toHaveBeenCalledTimes(1);
-      expect(mostrarToast.mock.calls[0][0]).toContain('restringida');
-    });
-
-    it('debe permitir restringir aunque el motivo esté vacío', () => {
-      component.target.set(
-        crearUsuario(1, 'Ana López', 'ana@correo.com', true)
-      );
-      component.reason = '';
-
-      component.toggle();
-
-      expect(toggleUser).toHaveBeenCalledWith(1);
     });
   });
 
-  describe('Reactivación de usuarios', () => {
+  describe('Restringir y reactivar', () => {
     beforeEach(() => {
+      usuarios.mockReturnValue(of([crearUsuario()]));
       crearComponente();
     });
 
-    it('debe reactivar un usuario inactivo', () => {
-      component.target.set(
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com', false)
-      );
+    it('debe restringir con el motivo recortado, avisar y recargar la lista', () => {
+      restringirUsuario.mockReturnValue(of({}));
+      component.abrir(crearUsuario());
+      component.reason = '  Incumple las politicas  ';
 
-      component.toggle();
+      component.confirmar();
 
-      expect(toggleUser).toHaveBeenCalledWith(2);
+      expect(restringirUsuario).toHaveBeenCalledWith('usuario-1', 'Incumple las politicas');
+      expect(mostrarToast).toHaveBeenCalledWith(expect.stringContaining('fue restringida'));
+      expect(usuarios).toHaveBeenCalledTimes(2);
+      expect(component.target()).toBeNull();
+      expect(component.procesando()).toBe(false);
     });
 
-    it('debe mostrar una notificación de reactivación', () => {
-      component.target.set(
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com', false)
-      );
+    it('no debe restringir sin motivo', () => {
+      component.abrir(crearUsuario());
+      component.reason = '   ';
 
-      component.toggle();
+      component.confirmar();
+
+      expect(restringirUsuario).not.toHaveBeenCalled();
+      expect(component.target()).not.toBeNull();
+    });
+
+    it('debe reactivar a un usuario restringido sin pedir motivo', () => {
+      levantarRestriccion.mockReturnValue(of({}));
+      component.abrir(crearUsuario({ activo: false, restringido: true }));
+
+      component.confirmar();
+
+      expect(levantarRestriccion).toHaveBeenCalledWith('usuario-1');
+      expect(restringirUsuario).not.toHaveBeenCalled();
+      expect(mostrarToast).toHaveBeenCalledWith(expect.stringContaining('fue reactivada'));
+    });
+
+    it('no debe repetir la accion mientras hay una en curso', () => {
+      restringirUsuario.mockReturnValue(new Subject());
+      component.abrir(crearUsuario());
+      component.reason = 'Motivo';
+
+      component.confirmar();
+      component.confirmar();
+
+      expect(restringirUsuario).toHaveBeenCalledTimes(1);
+      expect(component.procesando()).toBe(true);
+    });
+
+    it('debe mostrar el mensaje del back si falla y dejar la ventana abierta', () => {
+      restringirUsuario.mockReturnValue(
+        throwError(() => crearError(400, 'No se puede restringir a otro administrador'))
+      );
+      component.abrir(crearUsuario());
+      component.reason = 'Motivo';
+
+      component.confirmar();
 
       expect(mostrarToast).toHaveBeenCalledWith(
-        'La cuenta fue reactivada.'
+        'No se puede restringir a otro administrador',
+        'warning'
       );
+      expect(component.target()).not.toBeNull();
+      expect(component.procesando()).toBe(false);
     });
 
-    it('debe limpiar la selección después de reactivar', () => {
-      component.target.set(
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com', false)
+    it('debe mostrar un aviso generico ante otro error', () => {
+      levantarRestriccion.mockReturnValue(throwError(() => crearError(500)));
+      component.abrir(crearUsuario({ activo: false, restringido: true }));
+
+      component.confirmar();
+
+      expect(mostrarToast).toHaveBeenCalledWith(
+        expect.stringContaining('No se pudo completar'),
+        'warning'
       );
-
-      component.toggle();
-
-      expect(component.target()).toBeNull();
-    });
-
-    it('debe limpiar el motivo después de reactivar', () => {
-      component.target.set(
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com', false)
-      );
-      component.reason = 'Revisión completada';
-
-      component.toggle();
-
-      expect(component.reason).toBe('');
-    });
-
-    it('debe permitir reactivar sin escribir un motivo', () => {
-      component.target.set(
-        crearUsuario(2, 'Carlos Ruiz', 'carlos@correo.com', false)
-      );
-      component.reason = '';
-
-      component.toggle();
-
-      expect(toggleUser).toHaveBeenCalledWith(2);
-    });
-
-    it('no debe mostrar notificaciones si no hay usuario seleccionado', () => {
-      component.toggle();
-
-      expect(mostrarToast).not.toHaveBeenCalled();
     });
   });
 });
