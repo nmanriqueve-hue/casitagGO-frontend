@@ -49,6 +49,19 @@ export interface RestriccionBack {
   activa: boolean;
 }
 
+export interface PublicacionAdminBack {
+  id: string;
+  titulo: string;
+  ciudad: string;
+  tipo: string;
+  estado: string;
+  precioNoche: number;
+  anfitrionId: string;
+  anfitrionNombre: string;
+  anfitrionCorreo: string;
+  creadoEn: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminBackService {
   private readonly http = inject(HttpClient);
@@ -79,5 +92,13 @@ export class AdminBackService {
 
   levantarRestriccion(id: string): Observable<RestriccionBack> {
     return this.http.patch<RestriccionBack>(`${API_URL}/api/admin/usuarios/${id}/levantar-restriccion`, {});
+  }
+
+  publicaciones(): Observable<PublicacionAdminBack[]> {
+    return this.http.get<PublicacionAdminBack[]>(`${API_URL}/api/admin/publicaciones`);
+  }
+
+  bloquearPublicacion(id: string, motivo: string): Observable<unknown> {
+    return this.http.patch(`${API_URL}/api/publicaciones/${id}/bloquear`, { motivo });
   }
 }
