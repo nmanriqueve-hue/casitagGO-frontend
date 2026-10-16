@@ -1,4 +1,4 @@
-
+﻿
 // @vitest-environment jsdom
 import '@angular/compiler';
 
@@ -82,7 +82,7 @@ describe('GuestBookingsComponent', () => {
         },
         {
           provide: CatalogService,
-          useValue: { obtenerDetalle }
+          useValue: { obtenerDetalle, obtenerResenas: vi.fn().mockReturnValue(of({ promedio: 0, total: 0, resenas: [] })) }
         },
         {
           provide: ToastService,

@@ -7,7 +7,7 @@ import { RouterLink } from '@angular/router';
 import { localToday } from '../../core/models/date-rules';
 import { Listing } from '../../core/models/marketplace.models';
 import { CatalogService } from '../../core/services/catalog.service';
-import { ReservasBackService } from '../../core/services/reservas-back.service';
+import { ReservaBack, ReservasBackService } from '../../core/services/reservas-back.service';
 import { ToastService } from '../../core/services/toast.service';
 
 interface ReservaVista {
@@ -27,13 +27,18 @@ export class GuestBookingsComponent {
   private readonly toast = inject(ToastService);
 
   readonly today = localToday();
+  readonly estrellas = [1, 2, 3, 4, 5];
   readonly tab = signal<'upcoming' | 'history'>('upcoming');
   readonly items = signal<ReservaVista[]>([]);
   readonly cargando = signal(true);
   readonly errorCarga = signal('');
   readonly procesando = signal(false);
   readonly cancelTarget = signal<ReservaVista | null>(null);
+  readonly reviewTarget = signal<ReservaVista | null>(null);
+  readonly calificacion = signal(5);
+  readonly resenadas = signal<string[]>([]);
   cancelReason = '';
+  reviewComment = '';
 
   readonly visible = computed(() => this.items().filter((item) => this.esProxima(item) === (this.tab() === 'upcoming')));
 
@@ -47,6 +52,14 @@ export class GuestBookingsComponent {
 
   estadoMostrado(item: ReservaVista): string {
     return item.estado === 'CONFIRMADA' && item.fechaSalida <= localToday() ? 'COMPLETADA' : item.estado;
+  }
+
+  puedeResenar(item: ReservaVista): boolean {
+    return this.estadoMostrado(item) === 'COMPLETADA' && !this.resenadas().includes(item.id);
+  }
+
+  yaResenada(item: ReservaVista): boolean {
+    return this.estadoMostrado(item) === 'COMPLETADA' && this.resenadas().includes(item.id);
   }
 
   reembolsoEstimado(item: ReservaVista): number {
@@ -76,12 +89,27 @@ export class GuestBookingsComponent {
             next: (publicacion) => this.items.update((actual) => actual.map((item) => item.id === reserva.id ? { ...item, publicacion } : item))
           });
         }
+        this.marcarResenadas(lista);
       },
       error: (error: HttpErrorResponse) => {
         this.cargando.set(false);
         this.errorCarga.set(this.mensajeDeError(error));
       }
     });
+  }
+
+  private marcarResenadas(lista: ReservaBack[]): void {
+    const terminadas = lista.filter((r) => ['CONFIRMADA', 'COMPLETADA'].includes(r.estado) && r.fechaSalida <= localToday());
+    const publicaciones = [...new Set(terminadas.map((r) => r.publicacionId))];
+    for (const publicacionId of publicaciones) {
+      this.catalog.obtenerResenas(publicacionId).subscribe({
+        error: () => undefined,
+        next: (respuesta) => {
+          const ids = respuesta.resenas.map((resena) => resena.reservaId);
+          this.resenadas.update((actual) => [...new Set([...actual, ...ids])]);
+        }
+      });
+    }
   }
 
   confirmCancel(): void {
@@ -96,6 +124,35 @@ export class GuestBookingsComponent {
         const devolucion = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(cancelacion.valorDevolucion);
         this.toast.show(`La reserva fue cancelada. Devolución: ${devolucion}.`, 'warning');
         this.cargar();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.procesando.set(false);
+        this.toast.show(this.mensajeDeError(error), 'warning');
+      }
+    });
+  }
+
+  abrirResena(item: ReservaVista): void {
+    this.calificacion.set(5);
+    this.reviewComment = '';
+    this.reviewTarget.set(item);
+  }
+
+  cerrarResena(): void {
+    this.reviewTarget.set(null);
+    this.reviewComment = '';
+  }
+
+  enviarResena(): void {
+    const reserva = this.reviewTarget();
+    if (!reserva || this.procesando()) return;
+    this.procesando.set(true);
+    this.reservas.crearResena(reserva.id, this.calificacion(), this.reviewComment.trim()).subscribe({
+      next: () => {
+        this.procesando.set(false);
+        this.resenadas.update((actual) => [...actual, reserva.id]);
+        this.cerrarResena();
+        this.toast.show('Gracias, tu reseña fue publicada.');
       },
       error: (error: HttpErrorResponse) => {
         this.procesando.set(false);

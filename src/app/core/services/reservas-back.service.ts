@@ -43,6 +43,16 @@ export interface CancelacionBack {
   estadoFinal: string;
 }
 
+export interface ResenaCreadaBack {
+  id: string;
+  creadoEn: string | null;
+  reservaId: string;
+  publicacionId: string;
+  huespedNombre: string;
+  calificacion: number;
+  comentario: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReservasBackService {
   private readonly http = inject(HttpClient);
@@ -69,5 +79,9 @@ export class ReservasBackService {
 
   cancelar(reservaId: string, motivo: string): Observable<CancelacionBack> {
     return this.http.patch<CancelacionBack>(`${API_URL}/api/reservas/${reservaId}/cancelar`, { motivo });
+  }
+
+  crearResena(reservaId: string, calificacion: number, comentario: string): Observable<ResenaCreadaBack> {
+    return this.http.post<ResenaCreadaBack>(`${API_URL}/api/reservas/${reservaId}/resena`, { calificacion, comentario });
   }
 }
