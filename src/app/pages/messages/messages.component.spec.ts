@@ -1,21 +1,21 @@
-
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import '@angular/compiler';
 
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from '@angular/platform-browser-dynamic/testing';
-import { convertToParamMap, ActivatedRoute } from '@angular/router';
-import { signal } from '@angular/core';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MessagesComponent } from './messages.component';
-import { MessagingService } from '../../core/services/messaging.service';
 import { CatalogService } from '../../core/services/catalog.service';
+import { ConversacionBack, MensajeBack, MensajesBackService } from '../../core/services/mensajes-back.service';
 import { SessionService } from '../../core/services/session.service';
-import { USERS } from '../../core/services/mock-data';
+import { ToastService } from '../../core/services/toast.service';
 
 try {
   TestBed.initTestEnvironment(
@@ -33,388 +33,367 @@ try {
 
 describe('MessagesComponent', () => {
   let component: MessagesComponent;
-  let conversations: ReturnType<typeof signal<{ id: number }[]>>;
-  let open: ReturnType<typeof vi.fn>;
-  let read: ReturnType<typeof vi.fn>;
-  let send: ReturnType<typeof vi.fn>;
+  let conversaciones: ReturnType<typeof vi.fn>;
+  let conversacion: ReturnType<typeof vi.fn>;
+  let enviar: ReturnType<typeof vi.fn>;
+  let obtenerDetalle: ReturnType<typeof vi.fn>;
+  let mostrarToast: ReturnType<typeof vi.fn>;
 
-  const crearConversacion = (id: number) => ({ id });
+  const crearConversacion = (cambios: Partial<ConversacionBack> = {}): ConversacionBack => ({
+    publicacionId: 'pub-1',
+    huespedId: 'huesped-1',
+    ultimoMensaje: 'Hola',
+    fechaUltimoMensaje: '2026-10-16T10:00:00Z',
+    tituloPublicacion: 'Apartamento en Chapinero',
+    huespedNombre: 'Hugo Huesped',
+    anfitrionNombre: 'Ana Anfitriona',
+    ...cambios
+  });
 
-  const crearComponente = (alojamiento?: string): void => {
+  const crearMensaje = (cambios: Partial<MensajeBack> = {}): MensajeBack => ({
+    id: 'mensaje-1',
+    creadoEn: '2026-10-16T10:00:00Z',
+    publicacionId: 'pub-1',
+    huespedId: 'huesped-1',
+    emisorId: 'huesped-1',
+    contenido: 'Hola',
+    leido: false,
+    ...cambios
+  });
+
+  const crearError = (status: number, error: unknown = null): HttpErrorResponse =>
+    new HttpErrorResponse({ status, error });
+
+  const crearComponente = (rol: 'guest' | 'host' = 'guest', alojamiento: string | null = null): void => {
     TestBed.configureTestingModule({
       providers: [
-        {
-          provide: MessagingService,
-          useValue: {
-            conversations,
-            open,
-            read,
-            send
-          }
-        },
-        {
-          provide: CatalogService,
-          useValue: {}
-        },
-        {
-          provide: SessionService,
-          useValue: {}
-        },
+        { provide: MensajesBackService, useValue: { conversaciones, conversacion, enviar } },
+        { provide: CatalogService, useValue: { obtenerDetalle } },
+        { provide: SessionService, useValue: { role: () => rol } },
+        { provide: ToastService, useValue: { show: mostrarToast } },
         {
           provide: ActivatedRoute,
-          useValue: {
-            snapshot: {
-              queryParamMap: convertToParamMap(
-                alojamiento === undefined
-                  ? {}
-                  : { alojamiento }
-              )
-            }
-          }
+          useValue: { snapshot: { queryParamMap: convertToParamMap(alojamiento ? { alojamiento } : {}) } }
         }
       ]
     });
 
-    component = TestBed.runInInjectionContext(
-      () => new MessagesComponent()
-    );
+    component = TestBed.runInInjectionContext(() => new MessagesComponent());
   };
 
   beforeEach(() => {
     TestBed.resetTestingModule();
 
-    conversations = signal([
-      crearConversacion(101),
-      crearConversacion(102),
-      crearConversacion(103)
-    ]);
-
-    open = vi.fn().mockReturnValue(null);
-    read = vi.fn();
-    send = vi.fn().mockReturnValue(true);
+    conversaciones = vi.fn().mockReturnValue(of([]));
+    conversacion = vi.fn().mockReturnValue(of([]));
+    enviar = vi.fn();
+    obtenerDetalle = vi.fn().mockReturnValue(of({ title: 'Casa en Suba' }));
+    mostrarToast = vi.fn();
   });
 
-  describe('Inicialización', () => {
-    it('debe crear el componente', () => {
-      crearComponente();
-
-      expect(component).toBeTruthy();
-    });
-
-    it('debe tener disponible el servicio de mensajería', () => {
-      crearComponente();
-
-      expect(component.chat).toBeDefined();
-    });
-
-    it('debe tener disponible el catálogo', () => {
-      crearComponente();
-
-      expect(component.catalog).toBeDefined();
-    });
-
-    it('debe tener disponible la sesión', () => {
-      crearComponente();
-
-      expect(component.session).toBeDefined();
-    });
-
-    it('debe iniciar con borrador vacío', () => {
-      crearComponente();
-
-      expect(component.draft).toBe('');
-    });
-
-    it('debe seleccionar la primera conversación disponible', () => {
-      crearComponente();
-
-      expect(component.selected()).toBe(101);
-    });
-
-    it('debe marcar como leída la primera conversación', () => {
-      crearComponente();
-
-      expect(read).toHaveBeenCalledWith(101);
-    });
-
-    it('no debe abrir un alojamiento si no existe parámetro', () => {
-      crearComponente();
-
-      expect(open).not.toHaveBeenCalled();
-    });
-
-    it('debe permanecer sin selección cuando no hay conversaciones', () => {
-      conversations.set([]);
+  describe('Bandeja de conversaciones', () => {
+    it('debe cargar las conversaciones y abrir la primera', () => {
+      const lista = [crearConversacion(), crearConversacion({ publicacionId: 'pub-2' })];
+      conversaciones.mockReturnValue(of(lista));
 
       crearComponente();
 
-      expect(component.selected()).toBeNull();
+      expect(component.conversaciones()).toEqual(lista);
+      expect(component.seleccionada()).toBe(lista[0]);
+      expect(conversacion).toHaveBeenCalledWith('pub-1', 'huesped-1');
+      expect(component.cargando()).toBe(false);
+      expect(component.error()).toBe('');
     });
 
-    it('no debe marcar mensajes como leídos cuando no hay conversaciones', () => {
-      conversations.set([]);
+    it('debe quedar sin seleccion cuando no hay conversaciones', () => {
+      crearComponente();
+
+      expect(component.seleccionada()).toBeNull();
+      expect(conversacion).not.toHaveBeenCalled();
+    });
+
+    it('debe avisar cuando no hay conexion con el servidor', () => {
+      conversaciones.mockReturnValue(throwError(() => crearError(0)));
 
       crearComponente();
 
-      expect(read).not.toHaveBeenCalled();
+      expect(component.cargando()).toBe(false);
+      expect(component.error()).toContain('No se pudo conectar');
     });
 
-    it('debe seleccionar la primera conversación después de un parámetro inválido', () => {
-      crearComponente('abc');
+    it('debe mostrar el mensaje del back cuando es un error 400', () => {
+      conversaciones.mockReturnValue(throwError(() => crearError(400, 'Mensaje del back')));
 
-      expect(component.selected()).toBe(101);
-    });
-
-    it('debe iniciar con borrador vacío después de seleccionar el chat', () => {
       crearComponente();
 
-      expect(component.draft).toBe('');
+      expect(component.error()).toBe('Mensaje del back');
+    });
+
+    it('debe avisar que la sesion vencio cuando el back responde 403', () => {
+      conversaciones.mockReturnValue(throwError(() => crearError(403)));
+
+      crearComponente();
+
+      expect(component.error()).toContain('Vuelve a iniciar');
+    });
+
+    it('debe mostrar un mensaje generico ante otro error', () => {
+      conversaciones.mockReturnValue(throwError(() => crearError(500)));
+
+      crearComponente();
+
+      expect(component.error()).toContain('No se pudieron cargar tus conversaciones');
     });
   });
 
-  describe('Apertura de conversaciones', () => {
-    it('debe abrir una conversación desde el parámetro de alojamiento', () => {
-      open.mockReturnValue(crearConversacion(205));
+  describe('Llegada desde el detalle del alojamiento', () => {
+    it('debe abrir la conversacion existente de esa publicacion', () => {
+      const existente = crearConversacion({ publicacionId: 'pub-9' });
+      conversaciones.mockReturnValue(of([crearConversacion(), existente]));
 
-      crearComponente('50');
+      crearComponente('guest', 'pub-9');
 
-      expect(open).toHaveBeenCalledWith(50);
+      expect(component.seleccionada()).toBe(existente);
+      expect(obtenerDetalle).not.toHaveBeenCalled();
     });
 
-    it('debe seleccionar la conversación abierta desde la URL', () => {
-      open.mockReturnValue(crearConversacion(205));
+    it('debe abrir una conversacion vacia con el titulo cuando no existe', () => {
+      crearComponente('guest', 'pub-9');
 
-      crearComponente('50');
-
-      expect(component.selected()).toBe(205);
+      expect(obtenerDetalle).toHaveBeenCalledWith('pub-9');
+      expect(component.seleccionada()?.publicacionId).toBe('pub-9');
+      expect(component.seleccionada()?.huespedId).toBe('');
+      expect(component.seleccionada()?.tituloPublicacion).toBe('Casa en Suba');
+      expect(conversacion).not.toHaveBeenCalled();
     });
 
-    it('debe marcar como leída la conversación abierta', () => {
-      open.mockReturnValue(crearConversacion(205));
+    it('debe avisar y abrir la primera si no se encuentra el alojamiento', () => {
+      const primera = crearConversacion();
+      conversaciones.mockReturnValue(of([primera]));
+      obtenerDetalle.mockReturnValue(throwError(() => crearError(404)));
 
-      crearComponente('50');
+      crearComponente('guest', 'pub-9');
 
-      expect(read).toHaveBeenCalledWith(205);
+      expect(mostrarToast).toHaveBeenCalledWith(expect.stringContaining('No se encontr'), 'warning');
+      expect(component.seleccionada()).toBe(primera);
     });
 
-    it('debe usar la primera conversación si no se puede abrir la solicitada', () => {
-      open.mockReturnValue(null);
+    it('debe ignorar el alojamiento cuando quien entra es el anfitrion', () => {
+      const primera = crearConversacion();
+      conversaciones.mockReturnValue(of([primera]));
 
-      crearComponente('50');
+      crearComponente('host', 'pub-9');
 
-      expect(component.selected()).toBe(101);
-    });
-
-    it('debe mantener la conversación abierta aunque no haya otras conversaciones', () => {
-      conversations.set([]);
-      open.mockReturnValue(crearConversacion(205));
-
-      crearComponente('50');
-
-      expect(component.selected()).toBe(205);
-    });
-
-    it('no debe abrir una conversación si el parámetro es cero', () => {
-      crearComponente('0');
-
-      expect(open).not.toHaveBeenCalled();
-    });
-
-    it('no debe abrir una conversación si el parámetro no es numérico', () => {
-      crearComponente('abc');
-
-      expect(open).not.toHaveBeenCalled();
-    });
-
-    it('debe abrir una conversación con identificador numérico', () => {
-      open.mockReturnValue(crearConversacion(300));
-
-      crearComponente('300');
-
-      expect(open).toHaveBeenCalledWith(300);
+      expect(obtenerDetalle).not.toHaveBeenCalled();
+      expect(component.seleccionada()).toBe(primera);
     });
   });
 
-  describe('Selección de conversaciones', () => {
-    beforeEach(() => {
-      crearComponente();
-      read.mockClear();
+  describe('Roles y autores de los mensajes', () => {
+    it('debe saber si quien entra es anfitrion', () => {
+      crearComponente('host');
+
+      expect(component.esAnfitrion()).toBe(true);
     });
 
-    it('debe cambiar la conversación seleccionada', () => {
-      component.select(102);
+    it('debe mostrarle al huesped el nombre del anfitrion', () => {
+      crearComponente('guest');
 
-      expect(component.selected()).toBe(102);
+      expect(component.otraPersona(crearConversacion())).toBe('Ana Anfitriona');
     });
 
-    it('debe marcar como leída la conversación seleccionada', () => {
-      component.select(102);
+    it('debe mostrarle al anfitrion el nombre del huesped', () => {
+      crearComponente('host');
 
-      expect(read).toHaveBeenCalledWith(102);
+      expect(component.otraPersona(crearConversacion())).toBe('Hugo Huesped');
     });
 
-    it('debe limpiar el borrador al cambiar de conversación', () => {
-      component.draft = 'Mensaje anterior';
+    it('debe considerar mio el mensaje que escribio el huesped cuando entra un huesped', () => {
+      crearComponente('guest');
 
-      component.select(102);
-
-      expect(component.draft).toBe('');
+      expect(component.esMio(crearMensaje({ emisorId: 'huesped-1' }))).toBe(true);
+      expect(component.esMio(crearMensaje({ emisorId: 'anfitrion-1' }))).toBe(false);
     });
 
-    it('debe permitir seleccionar otra conversación', () => {
-      component.select(102);
-      component.select(103);
+    it('debe considerar mio el mensaje del anfitrion cuando entra un anfitrion', () => {
+      crearComponente('host');
 
-      expect(component.selected()).toBe(103);
+      expect(component.esMio(crearMensaje({ emisorId: 'anfitrion-1' }))).toBe(true);
+      expect(component.esMio(crearMensaje({ emisorId: 'huesped-1' }))).toBe(false);
     });
 
-    it('debe marcar como leídas las conversaciones seleccionadas', () => {
-      component.select(102);
-      component.select(103);
+    it('debe mostrar Tu como autor de los mensajes propios', () => {
+      crearComponente('guest');
 
-      expect(read).toHaveBeenCalledTimes(2);
-      expect(read).toHaveBeenNthCalledWith(1, 102);
-      expect(read).toHaveBeenNthCalledWith(2, 103);
+      expect(component.autor(crearMensaje({ emisorId: 'huesped-1' }))).toBe('Tú');
     });
 
-    it('debe limpiar el borrador incluso al seleccionar el mismo chat', () => {
-      component.draft = 'Hola';
+    it('debe mostrar el nombre del anfitrion como autor cuando entra un huesped', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      crearComponente('guest');
 
-      component.select(101);
-
-      expect(component.draft).toBe('');
+      expect(component.autor(crearMensaje({ emisorId: 'anfitrion-1' }))).toBe('Ana Anfitriona');
     });
 
-    it('debe conservar el chat seleccionado hasta cambiarlo', () => {
-      component.select(103);
+    it('debe mostrar el nombre del huesped como autor cuando entra un anfitrion', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      crearComponente('host');
 
-      expect(component.selected()).toBe(103);
-      expect(component.selected()).not.toBe(101);
-    });
-  });
-
-  describe('Identificación de usuarios', () => {
-    beforeEach(() => {
-      crearComponente();
+      expect(component.autor(crearMensaje({ emisorId: 'huesped-1' }))).toBe('Hugo Huesped');
     });
 
-    it('debe mostrar el nombre de un usuario existente', () => {
-      const usuario = USERS[0];
+    it('debe usar un nombre generico si no hay conversacion elegida (huesped)', () => {
+      crearComponente('guest');
 
-      expect(component.name(usuario.id)).toBe(usuario.name);
+      expect(component.autor(crearMensaje({ emisorId: 'anfitrion-1' }))).toBe('Anfitrión');
     });
 
-    it('debe mostrar el nombre de otro usuario registrado', () => {
-      const usuario = USERS[USERS.length - 1];
+    it('debe usar un nombre generico si no hay conversacion elegida (anfitrion)', () => {
+      crearComponente('host');
 
-      expect(component.name(usuario.id)).toBe(usuario.name);
-    });
-
-    it('debe mostrar un identificador cuando el usuario no existe', () => {
-      expect(component.name(999999)).toBe('Usuario #999999');
-    });
-
-    it('debe mostrar el identificador para un usuario desconocido', () => {
-      expect(component.name(888888)).toContain('888888');
-    });
-
-    it('debe mantener el formato de usuario desconocido', () => {
-      expect(component.name(777777)).toMatch(/^Usuario #/);
+      expect(component.autor(crearMensaje({ emisorId: 'huesped-1' }))).toBe('Huésped');
     });
   });
 
-  describe('Envío de mensajes', () => {
-    beforeEach(() => {
+  describe('Seleccionar una conversacion', () => {
+    it('debe cargar los mensajes de la conversacion', () => {
+      const mensajes = [crearMensaje(), crearMensaje({ id: 'mensaje-2', emisorId: 'anfitrion-1' })];
+      conversacion.mockReturnValue(of(mensajes));
       crearComponente();
+
+      component.seleccionar(crearConversacion());
+
+      expect(conversacion).toHaveBeenCalledWith('pub-1', 'huesped-1');
+      expect(component.mensajes()).toEqual(mensajes);
+      expect(component.cargandoMensajes()).toBe(false);
     });
 
-    it('debe enviar un mensaje al chat seleccionado', () => {
-      component.draft = 'Hola, ¿está disponible?';
+    it('debe limpiar el borrador y los mensajes anteriores', () => {
+      conversacion.mockReturnValue(new Subject());
+      crearComponente();
+      component.draft = 'Texto sin enviar';
+      component.mensajes.set([crearMensaje()]);
 
-      component.send();
-
-      expect(send).toHaveBeenCalledWith(
-        101,
-        'Hola, ¿está disponible?'
-      );
-    });
-
-    it('debe limpiar el borrador cuando el envío es exitoso', () => {
-      component.draft = 'Mensaje de prueba';
-
-      component.send();
+      component.seleccionar(crearConversacion());
 
       expect(component.draft).toBe('');
+      expect(component.mensajes()).toEqual([]);
+      expect(component.cargandoMensajes()).toBe(true);
     });
 
-    it('debe conservar el borrador cuando falla el envío', () => {
-      send.mockReturnValue(false);
-      component.draft = 'Mensaje pendiente';
+    it('debe avisar si no se pueden cargar los mensajes', () => {
+      conversacion.mockReturnValue(throwError(() => crearError(400, 'No tienes permiso para ver esta conversacion')));
+      crearComponente();
 
-      component.send();
+      component.seleccionar(crearConversacion());
 
-      expect(component.draft).toBe('Mensaje pendiente');
+      expect(mostrarToast).toHaveBeenCalledWith('No tienes permiso para ver esta conversacion', 'warning');
+      expect(component.cargandoMensajes()).toBe(false);
     });
 
-    it('no debe enviar mensajes si no hay conversación seleccionada', () => {
-      component.selected.set(null);
-      component.draft = 'Hola';
+    it('debe ignorar la respuesta de una conversacion que ya no esta elegida', () => {
+      const primera = new Subject<MensajeBack[]>();
+      const segunda = new Subject<MensajeBack[]>();
+      conversacion.mockReturnValueOnce(primera).mockReturnValueOnce(segunda);
+      crearComponente();
 
-      component.send();
+      component.seleccionar(crearConversacion({ publicacionId: 'pub-1' }));
+      component.seleccionar(crearConversacion({ publicacionId: 'pub-2' }));
+      primera.next([crearMensaje({ id: 'viejo' })]);
 
-      expect(send).not.toHaveBeenCalled();
+      expect(component.mensajes()).toEqual([]);
+
+      const nuevo = crearMensaje({ id: 'nuevo' });
+      segunda.next([nuevo]);
+
+      expect(component.mensajes()).toEqual([nuevo]);
+      expect(component.cargandoMensajes()).toBe(false);
+    });
+  });
+
+  describe('Enviar mensajes', () => {
+    it('debe enviar el mensaje recortado, agregarlo y recargar la bandeja', () => {
+      const lista = [crearConversacion()];
+      conversaciones.mockReturnValue(of(lista));
+      const respuesta = crearMensaje({ id: 'enviado', contenido: 'Hola de nuevo' });
+      enviar.mockReturnValue(of(respuesta));
+      crearComponente();
+      component.draft = '  Hola de nuevo  ';
+
+      component.enviar();
+
+      expect(enviar).toHaveBeenCalledWith('pub-1', 'Hola de nuevo', 'huesped-1');
+      expect(component.mensajes()).toContain(respuesta);
+      expect(component.draft).toBe('');
+      expect(component.enviando()).toBe(false);
+      expect(conversaciones).toHaveBeenCalledTimes(2);
     });
 
-    it('no debe borrar el borrador cuando no hay conversación', () => {
-      component.selected.set(null);
-      component.draft = 'Mensaje sin enviar';
-
-      component.send();
-
-      expect(component.draft).toBe('Mensaje sin enviar');
-    });
-
-    it('debe enviar al chat que se seleccione posteriormente', () => {
-      component.select(102);
-      component.draft = 'Mensaje para el segundo chat';
-
-      component.send();
-
-      expect(send).toHaveBeenCalledWith(
-        102,
-        'Mensaje para el segundo chat'
-      );
-    });
-
-    it('debe conservar el contenido enviado sin modificarlo', () => {
-      component.draft = '  Hola anfitrión  ';
-
-      component.send();
-
-      expect(send).toHaveBeenCalledWith(
-        101,
-        '  Hola anfitrión  '
-      );
-    });
-
-    it('debe permitir enviar varios mensajes consecutivos', () => {
+    it('debe tomar el huesped de la respuesta cuando la conversacion es nueva', () => {
+      enviar.mockReturnValue(of(crearMensaje({ huespedId: 'huesped-nuevo' })));
+      crearComponente('guest', 'pub-9');
       component.draft = 'Primer mensaje';
-      component.send();
 
-      component.draft = 'Segundo mensaje';
-      component.send();
+      component.enviar();
 
-      expect(send).toHaveBeenCalledTimes(2);
-      expect(send).toHaveBeenNthCalledWith(
-        1,
-        101,
-        'Primer mensaje'
-      );
-      expect(send).toHaveBeenNthCalledWith(
-        2,
-        101,
-        'Segundo mensaje'
-      );
+      expect(enviar).toHaveBeenCalledWith('pub-9', 'Primer mensaje', undefined);
+      expect(component.seleccionada()?.huespedId).toBe('huesped-nuevo');
+    });
+
+    it('no debe enviar si no hay una conversacion elegida', () => {
+      crearComponente();
+      component.draft = 'Hola';
+
+      component.enviar();
+
+      expect(enviar).not.toHaveBeenCalled();
+    });
+
+    it('no debe enviar un mensaje vacio', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      crearComponente();
+      component.draft = '   ';
+
+      component.enviar();
+
+      expect(enviar).not.toHaveBeenCalled();
+    });
+
+    it('no debe enviar dos veces mientras hay un envio en curso', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      enviar.mockReturnValue(new Subject());
+      crearComponente();
+      component.draft = 'Hola';
+
+      component.enviar();
+      component.enviar();
+
+      expect(enviar).toHaveBeenCalledTimes(1);
+      expect(component.enviando()).toBe(true);
+    });
+
+    it('debe mostrar el mensaje del back y conservar el borrador si falla', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      enviar.mockReturnValue(throwError(() => crearError(400, 'Solo el propietario puede responder')));
+      crearComponente();
+      component.draft = 'Hola';
+
+      component.enviar();
+
+      expect(mostrarToast).toHaveBeenCalledWith('Solo el propietario puede responder', 'warning');
+      expect(component.draft).toBe('Hola');
+      expect(component.enviando()).toBe(false);
+    });
+
+    it('debe mostrar un aviso generico ante otro error', () => {
+      conversaciones.mockReturnValue(of([crearConversacion()]));
+      enviar.mockReturnValue(throwError(() => crearError(500)));
+      crearComponente();
+      component.draft = 'Hola';
+
+      component.enviar();
+
+      expect(mostrarToast).toHaveBeenCalledWith(expect.stringContaining('No se pudo enviar'), 'warning');
     });
   });
 });
