@@ -11,6 +11,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable, Subject, catchError, debounceTime, map, merge, of, switchMap } from 'rxjs';
 import { Listing } from '../../core/models/marketplace.models';
 import { BookingService } from '../../core/services/booking.service';
+import { estimarCotizacion } from '../../core/models/cotizacion-estimada';
 import { CatalogService } from '../../core/services/catalog.service';
 import { DisponibilidadBackService } from '../../core/services/disponibilidad-back.service';
 import { SessionService } from '../../core/services/session.service';
@@ -53,7 +54,9 @@ export class DetailComponent {
     const stay = this.listing();
     const value = this.quoteForm.getRawValue();
     if (dateRangeError(value.checkIn, value.checkOut)) return null;
-    return stay ? this.bookings.quote(stay, value.checkIn ?? '', value.checkOut ?? '', value.extras ? 45000 : 0) : null;
+    if (!stay) return null;
+    const extras = value.extras ? 45000 : 0;
+    return stay.uuid ? estimarCotizacion(stay.price, value.checkIn ?? '', value.checkOut ?? '', extras) : this.bookings.quote(stay, value.checkIn ?? '', value.checkOut ?? '', extras);
   }
 
   constructor(
