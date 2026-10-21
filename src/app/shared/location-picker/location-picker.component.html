@@ -1,0 +1,7 @@
+﻿<div class="picker">
+  <div class="picker-bar"><button type="button" class="btn btn-outline-brand btn-sm" [disabled]="buscando()" (click)="buscar()">{{ buscando() ? 'Buscando...' : 'Buscar dirección en el mapa' }}</button><small>Haz clic en el mapa o arrastra el marcador para ajustar el punto exacto.</small></div>
+  @if (error()) { <p class="field-error" role="alert">{{ error() }}</p> }
+  @if (alternativas().length > 0) { <div class="list-group mt-2"><small class="px-1">Otras coincidencias:</small>@for (alternativa of alternativas(); track $index) { <button type="button" class="list-group-item list-group-item-action" (click)="elegirAlternativa(alternativa)">{{ alternativa.label }}</button> }</div> }
+  <div #mapa class="picker-map"></div>
+  @if (punto(); as p) { <p class="picker-estado">{{ p.label }}@if (permitirQuitar()) { · <button type="button" class="btn btn-link btn-sm p-0" (click)="quitar()">Quitar punto</button> }</p> } @else { <p class="picker-estado">Todavía no has marcado un punto. Si lo dejas así, se ubicará de forma aproximada.</p> }
+</div>

@@ -30,6 +30,17 @@ export class MapsService {
     'Cali': { latitude: 3.45, longitude: -76.53, label: 'Cali · ubicación aproximada' },
     'Villa de Leyva': { latitude: 5.64, longitude: -73.52, label: 'Villa de Leyva · ubicación aproximada' }
   };
+  async buscarDireccion(ciudad: string, direccion: string): Promise<GeoPoint[]> {
+    const texto = [direccion.trim(), ciudad.trim()].filter(Boolean).join(', ');
+    if (texto.length < 3) return [];
+    if (this.addressSearchEnabled) return this.searchAddress(ciudad, '', direccion);
+    const clave = 'nominatim:' + texto.toLowerCase();
+    if (this.cache.has(clave)) return this.cache.get(clave)!;
+    const datos = await firstValueFrom(this.http.get<Array<{ lat: string; lon: string; display_name: string }>>('https://nominatim.openstreetmap.org/search', { params: { q: texto, format: 'jsonv2', limit: 5, countrycodes: 'co', 'accept-language': 'es' } }).pipe(timeout(10000)));
+    const puntos = datos.map((d) => ({ latitude: Number(d.lat), longitude: Number(d.lon), label: d.display_name })).filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+    this.cache.set(clave, puntos);
+    return puntos;
+  }
   ubicacionDeBack(uuid: string): Observable<GeoPoint | null> {
     return this.http.get<{ publicacionId: string; latitud: number | null; longitud: number | null; aproximada?: boolean }>(`${API_URL}/api/publicaciones/${uuid}/ubicacion`).pipe(
       map((u) => (Number.isFinite(u.latitud) && Number.isFinite(u.longitud) ? { latitude: u.latitud as number, longitude: u.longitud as number, label: u.aproximada ? 'Ubicación aproximada (centro de la ciudad)' : 'Ubicación del alojamiento' } : null)),
