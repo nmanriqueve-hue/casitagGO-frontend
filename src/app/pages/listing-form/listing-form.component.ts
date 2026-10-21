@@ -5,15 +5,17 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { concatMap, from, map, of, switchMap, tap, toArray } from 'rxjs';
+import { GeoPoint } from '../../core/models/optional.models';
 import { PublicacionDatos, PublicacionesBackService } from '../../core/services/publicaciones-back.service';
 import { ToastService } from '../../core/services/toast.service';
+import { LocationPickerComponent } from '../../shared/location-picker/location-picker.component';
 
 interface FotoNueva {
   archivo: File;
   vista: string;
 }
 
-@Component({ selector: 'app-listing-form', imports: [FieldValidationDirective, ReactiveFormsModule, RouterLink], templateUrl: './listing-form.component.html', styleUrl: './listing-form.component.css' })
+@Component({ selector: 'app-listing-form', imports: [FieldValidationDirective, ReactiveFormsModule, RouterLink, LocationPickerComponent], templateUrl: './listing-form.component.html', styleUrl: './listing-form.component.css' })
 export class ListingFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(PublicacionesBackService);
@@ -30,6 +32,10 @@ export class ListingFormComponent {
   readonly imageError = signal('');
   readonly existentes = signal<string[]>([]);
   readonly nuevas = signal<FotoNueva[]>([]);
+
+  // Punto exacto elegido en el mapa. Si la publicación ya tenía uno guardado, el back solo permite reemplazarlo, no quitarlo.
+  readonly punto = signal<GeoPoint | null>(null);
+  readonly hayPuntoOriginal = signal(false);
 
   readonly tipos = [
     { valor: 'APARTAMENTO', nombre: 'Apartamento' },
@@ -74,6 +80,10 @@ export class ListingFormComponent {
             price: publicacion.precioNoche,
             rules: (publicacion.reglas ?? []).join('\n')
           });
+          if (Number.isFinite(publicacion.latitud) && Number.isFinite(publicacion.longitud)) {
+            this.punto.set({ latitude: publicacion.latitud as number, longitude: publicacion.longitud as number, label: 'Punto guardado' });
+            this.hayPuntoOriginal.set(true);
+          }
           this.selectedAmenities.set([...(publicacion.servicios ?? [])]);
           this.existentes.set([...(publicacion.imagenes ?? [])]);
           this.cargando.set(false);
@@ -149,7 +159,9 @@ export class ListingFormComponent {
       capacidad: v.capacity ?? 1,
       precioNoche: v.price ?? 1,
       servicios: this.selectedAmenities(),
-      reglas: (v.rules ?? '').split('\n').map((regla) => regla.trim()).filter(Boolean)
+      reglas: (v.rules ?? '').split('\n').map((regla) => regla.trim()).filter(Boolean),
+      latitud: this.punto()?.latitude ?? null,
+      longitud: this.punto()?.longitude ?? null
     };
     this.guardando.set(true);
     const guardar$ = this.idGuardado ? this.api.editar(this.idGuardado, datos) : this.api.crear(datos);

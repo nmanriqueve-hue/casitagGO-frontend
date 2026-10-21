@@ -22,6 +22,8 @@ export interface PublicacionBack {
   servicios: string[];
   reglas: string[];
   imagenes: string[];
+  latitud?: number | null;
+  longitud?: number | null;
 }
 
 export interface ResenaBack {

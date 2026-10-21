@@ -14,6 +14,8 @@ export interface PublicacionDatos {
   precioNoche: number;
   servicios: string[];
   reglas: string[];
+  latitud?: number | null;
+  longitud?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
