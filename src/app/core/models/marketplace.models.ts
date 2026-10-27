@@ -25,6 +25,7 @@ export interface Listing {
   id: number;
   hostId: number;
   hostUuid?: string;
+  hostName?: string;
   uuid?: string;
   title: string;
   description: string;
