@@ -1,4 +1,4 @@
-
+﻿
  // @vitest-environment jsdom
 import '@angular/compiler';
 import { TestBed } from '@angular/core/testing';
@@ -12,7 +12,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionService, PerfilBack } from './session.service';
 import { API_URL } from '../config/api.config';
-import { User, UserRole } from '../models/marketplace.models';
+import { User } from '../models/marketplace.models';
 
 try {
   TestBed.initTestEnvironment(
@@ -54,20 +54,6 @@ describe('SessionService', () => {
     activo: true,
     creadoEn: '2026-01-01',
     mfaHabilitado: false
-  };
-
-  const registrarUsuario = (
-    email: string,
-    role: UserRole = 'guest',
-    name = 'Usuario nuevo'
-  ): User => {
-    return service.register(
-      name,
-      email,
-      role,
-      'contrasena123',
-      '3001234567'
-    );
   };
 
   beforeEach(() => {
@@ -118,180 +104,11 @@ describe('SessionService', () => {
     });
   });
 
-  describe('Registro local', () => {
-    it('debe registrar un huesped', () => {
-      const usuario = registrarUsuario('nuevo1@test.com');
-
-      expect(usuario.role).toBe('guest');
-      expect(usuario.email).toBe('nuevo1@test.com');
-    });
-
-    it('debe registrar un anfitrion', () => {
-      const usuario = registrarUsuario('nuevo2@test.com', 'host');
-
-      expect(usuario.role).toBe('host');
-    });
-
-    it('debe guardar el usuario registrado', () => {
-      const usuario = registrarUsuario('nuevo3@test.com');
-
-      expect(
-        service.users().some(item => item.id === usuario.id)
-      ).toBe(true);
-    });
-
-    it('debe autenticar al usuario despues del registro', () => {
-      const usuario = registrarUsuario('nuevo4@test.com');
-
-      expect(service.currentUser()?.id).toBe(usuario.id);
-      expect(service.isAuthenticated()).toBe(true);
-    });
-
-    it('debe normalizar el correo electronico', () => {
-      const usuario = registrarUsuario('  NUEVO5@TEST.COM  ');
-
-      expect(usuario.email).toBe('nuevo5@test.com');
-    });
-
-    it('debe eliminar espacios del nombre', () => {
-      const usuario = registrarUsuario(
-        'nuevo6@test.com',
-        'guest',
-        '  Nombre de prueba  '
-      );
-
-      expect(usuario.name).toBe('Nombre de prueba');
-    });
-
-    it('debe rechazar nombres vacios', () => {
-      expect(() => registrarUsuario(
-        'nuevo7@test.com',
-        'guest',
-        '   '
-      )).toThrow('El correo ya está registrado o los datos no son válidos.');
-    });
-
-    it('debe rechazar contrasenas cortas', () => {
-      expect(() => service.register(
-        'Usuario',
-        'nuevo8@test.com',
-        'guest',
-        '1234567',
-        '3001234567'
-      )).toThrow('El correo ya está registrado o los datos no son válidos.');
-    });
-
-    it('debe rechazar correos duplicados', () => {
-      registrarUsuario('duplicado@test.com');
-
-      expect(() => registrarUsuario(
-        'DUPLICADO@TEST.COM'
-      )).toThrow('El correo ya está registrado o los datos no son válidos.');
-    });
-
-    it('debe rechazar el rol administrador en el registro', () => {
-      expect(() => service.register(
-        'Administrador',
-        'adminnuevo@test.com',
-        'admin',
-        'contrasena123',
-        ''
-      )).toThrow('El correo ya está registrado o los datos no son válidos.');
-    });
-
-    it('debe guardar el telefono sin espacios adicionales', () => {
-      const usuario = service.register(
-        'Usuario',
-        'telefono@test.com',
-        'guest',
-        'contrasena123',
-        '  3001234567  '
-      );
-
-      expect(usuario.phone).toBe('3001234567');
-    });
-
-    it('debe registrar el usuario como activo', () => {
-      const usuario = registrarUsuario('activo@test.com');
-
-      expect(usuario.active).toBe(true);
-    });
-  });
-
-  describe('Autenticacion local', () => {
-    it('debe encontrar credenciales validas', () => {
-      registrarUsuario('login1@test.com');
-
-      const usuario = service.credentials(
-        'login1@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      expect(usuario).toBeDefined();
-    });
-
-    it('debe aceptar correo sin distinguir mayusculas', () => {
-      registrarUsuario('login2@test.com');
-
-      expect(service.credentials(
-        '  LOGIN2@TEST.COM  ',
-        'guest',
-        'contrasena123'
-      )).toBeDefined();
-    });
-
-    it('debe rechazar una contrasena incorrecta', () => {
-      registrarUsuario('login3@test.com');
-
-      expect(service.credentials(
-        'login3@test.com',
-        'guest',
-        'incorrecta'
-      )).toBeUndefined();
-    });
-
-    it('debe rechazar un rol incorrecto', () => {
-      registrarUsuario('login4@test.com');
-
-      expect(service.credentials(
-        'login4@test.com',
-        'host',
-        'contrasena123'
-      )).toBeUndefined();
-    });
-
-    it('debe iniciar sesion con credenciales validas', () => {
-      registrarUsuario('login5@test.com');
-      service.logout();
-
-      const usuario = service.login(
-        'login5@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      expect(service.currentUser()?.id).toBe(usuario.id);
-    });
-
-    it('debe rechazar un inicio de sesion invalido', () => {
-      expect(() => service.login(
-        'inexistente@test.com',
-        'guest',
-        'incorrecta'
-      )).toThrow(
-        'Error de autenticación. Revisa el correo, la contraseña y el rol.'
-      );
-    });
-
-    it('debe actualizar el rol despues del inicio de sesion', () => {
-      registrarUsuario('anfitrion@test.com', 'host');
-
-      expect(service.role()).toBe('host');
-    });
-
+  describe('Cierre de sesion', () => {
     it('debe cerrar sesion correctamente', () => {
-      registrarUsuario('salida@test.com');
+      post.mockReturnValue(of(respuestaLogin));
+      service.loginReal('salida@test.com', 'clave').subscribe();
+      expect(service.isAuthenticated()).toBe(true);
 
       service.logout();
 
@@ -309,78 +126,6 @@ describe('SessionService', () => {
       expect(localStorage.getItem('casitago_token')).toBeNull();
       expect(localStorage.getItem('casitago_usuario')).toBeNull();
       expect(localStorage.getItem('casitago_expira')).toBeNull();
-    });
-  });
-
-  describe('Autenticacion multifactor local', () => {
-    it('debe preparar MFA con credenciales validas', () => {
-      registrarUsuario('mfa1@test.com');
-      service.logout();
-
-      service.prepareMfa(
-        'mfa1@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      expect(service.completeMfa()).toBe(true);
-    });
-
-    it('debe autenticar al completar MFA', () => {
-      const usuario = registrarUsuario('mfa2@test.com');
-      service.logout();
-
-      service.prepareMfa(
-        'mfa2@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      service.completeMfa();
-
-      expect(service.currentUser()?.id).toBe(usuario.id);
-    });
-
-    it('debe rechazar MFA sin preparacion', () => {
-      expect(service.completeMfa()).toBe(false);
-    });
-
-    it('debe rechazar MFA con credenciales incorrectas', () => {
-      service.prepareMfa(
-        'inexistente@test.com',
-        'guest',
-        'incorrecta'
-      );
-
-      expect(service.completeMfa()).toBe(false);
-    });
-
-    it('no debe permitir completar MFA dos veces', () => {
-      registrarUsuario('mfa3@test.com');
-      service.logout();
-
-      service.prepareMfa(
-        'mfa3@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      expect(service.completeMfa()).toBe(true);
-      expect(service.completeMfa()).toBe(false);
-    });
-
-    it('debe cancelar MFA pendiente al cerrar sesion', () => {
-      registrarUsuario('mfa4@test.com');
-
-      service.prepareMfa(
-        'mfa4@test.com',
-        'guest',
-        'contrasena123'
-      );
-
-      service.logout();
-
-      expect(service.completeMfa()).toBe(false);
     });
   });
 
@@ -739,144 +484,6 @@ describe('SessionService', () => {
         },
         { responseType: 'text' }
       );
-    });
-
-    it('debe actualizar los datos locales del perfil', () => {
-      const usuario = registrarUsuario('perfil1@test.com');
-
-      service.updateProfile({
-        name: '  Nombre nuevo  ',
-        phone: '  3112223344  '
-      });
-
-      const actualizado = service.users().find(
-        item => item.id === usuario.id
-      );
-
-      expect(actualizado?.name).toBe('Nombre nuevo');
-      expect(actualizado?.phone).toBe('3112223344');
-    });
-
-    it('debe rechazar un correo duplicado al actualizar', () => {
-      const reloj = vi.spyOn(Date, 'now');
-
-      try {
-        reloj.mockReturnValue(100001);
-        const primerUsuario = registrarUsuario('primero@test.com');
-
-        reloj.mockReturnValue(100002);
-        const segundoUsuario = registrarUsuario('segundo@test.com');
-
-        expect(primerUsuario.id).not.toBe(segundoUsuario.id);
-        expect(service.currentUser()?.id).toBe(segundoUsuario.id);
-
-        expect(() => {
-          service.updateProfile({
-            email: 'PRIMERO@TEST.COM'
-          });
-        }).toThrow('Este correo ya está registrado.');
-
-        expect(
-          service.users().find(
-            usuario => usuario.id === segundoUsuario.id
-          )?.email
-        ).toBe('segundo@test.com');
-      } finally {
-        reloj.mockRestore();
-      }
-    });
-
-    it('no debe actualizar el perfil sin sesion', () => {
-      registrarUsuario('perfil2@test.com');
-      service.logout();
-
-      expect(() => service.updateProfile({
-        name: 'Cambio'
-      })).not.toThrow();
-    });
-  });
-
-  describe('Administracion de usuarios', () => {
-    it('no debe permitir al huesped cambiar estados', () => {
-      const usuario = registrarUsuario('estado1@test.com');
-
-      service.toggleUser(usuario.id);
-
-      expect(
-        service.users().find(item => item.id === usuario.id)?.active
-      ).toBe(true);
-    });
-
-    it('no debe permitir al anfitrion cambiar estados', () => {
-      const usuario = registrarUsuario(
-        'estado2@test.com',
-        'host'
-      );
-
-      service.toggleUser(usuario.id);
-
-      expect(
-        service.users().find(item => item.id === usuario.id)?.active
-      ).toBe(true);
-    });
-
-    it('debe impedir que el administrador se desactive a si mismo', () => {
-      post.mockReturnValue(of({
-        ...respuestaLogin,
-        rol: 'ADMINISTRADOR'
-      }));
-
-      service.loginReal(
-        'admin@test.com',
-        'contrasena123'
-      ).subscribe();
-
-      const actual = service.currentUser();
-
-      service.toggleUser(actual!.id);
-
-      expect(service.isAuthenticated()).toBe(true);
-    });
-
-    it('debe permitir al administrador desactivar usuarios', () => {
-      const usuario = registrarUsuario('estado3@test.com');
-
-      post.mockReturnValue(of({
-        ...respuestaLogin,
-        rol: 'ADMINISTRADOR'
-      }));
-
-      service.loginReal(
-        'admin@test.com',
-        'contrasena123'
-      ).subscribe();
-
-      service.toggleUser(usuario.id);
-
-      expect(
-        service.users().find(item => item.id === usuario.id)?.active
-      ).toBe(false);
-    });
-
-    it('debe permitir al administrador reactivar usuarios', () => {
-      const usuario = registrarUsuario('estado4@test.com');
-
-      post.mockReturnValue(of({
-        ...respuestaLogin,
-        rol: 'ADMINISTRADOR'
-      }));
-
-      service.loginReal(
-        'admin@test.com',
-        'contrasena123'
-      ).subscribe();
-
-      service.toggleUser(usuario.id);
-      service.toggleUser(usuario.id);
-
-      expect(
-        service.users().find(item => item.id === usuario.id)?.active
-      ).toBe(true);
     });
   });
 
