@@ -157,7 +157,7 @@ export class DetailComponent {
     return stay.uuid ? this.backReviews() : this.catalog.reviewsFor(stay.id);
   }
 
-  hostName(): string { return this.session.users().find(u => u.id === this.listing()?.hostId)?.name ?? 'Anfitrión'; }
+  hostName(): string { return this.listing()?.hostName ?? this.session.users().find(u => u.id === this.listing()?.hostId)?.name ?? 'Anfitrión'; }
 
   canReserve(): boolean {
     const stay = this.listing();

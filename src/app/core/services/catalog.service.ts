@@ -11,6 +11,7 @@ import { LISTINGS, REVIEWS } from './mock-data';
 export interface PublicacionBack {
   id: string;
   anfitrionId: string;
+  anfitrionNombre?: string | null;
   titulo: string;
   descripcion: string;
   ubicacionTextual: string;
@@ -111,6 +112,7 @@ export class CatalogService {
       uuid: p.id,
       hostId: 0,
       hostUuid: p.anfitrionId,
+      hostName: p.anfitrionNombre ?? undefined,
       title: p.titulo,
       description: p.descripcion,
       city: p.ciudad,
