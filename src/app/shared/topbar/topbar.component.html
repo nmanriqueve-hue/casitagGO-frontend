@@ -1,4 +1,4 @@
-<header class="topbar">
+﻿<header class="topbar">
   <div class="container topbar-inner">
     <a class="brand" routerLink="/" (click)="closeMenu()" aria-label="Ir al inicio">
       <span class="brand-mark">CG</span>
@@ -6,8 +6,7 @@
     </a>
     <button class="menu-button" type="button" (click)="toggleMenu()" [attr.aria-expanded]="menuOpen()">Menú</button>
     <nav class="nav-links" [class.open]="menuOpen()">
-      @if (session.isAuthenticated()) { <a routerLink="/buscar" routerLinkActive="active" (click)="closeMenu()">Explorar</a>
-      <a routerLink="/mapas" routerLinkActive="active" (click)="closeMenu()">Mapa</a> }
+      @if (session.isAuthenticated()) { <a routerLink="/buscar" routerLinkActive="active" (click)="closeMenu()">Explorar</a> }
       @if (session.isAuthenticated()) {
         <details class="optional-menu"><summary>Más</summary><div>@if (session.role() !== 'admin') { <a routerLink="/mis-reservas" (click)="closeMenu()">Mis reservas</a><a routerLink="/favoritos" (click)="closeMenu()">Favoritos</a><a routerLink="/mensajes" (click)="closeMenu()">Mensajes</a> }<a routerLink="/seguridad" (click)="closeMenu()">Seguridad</a></div></details>
         <a [routerLink]="dashboardRoute()" routerLinkActive="active" (click)="closeMenu()">Mi espacio</a>

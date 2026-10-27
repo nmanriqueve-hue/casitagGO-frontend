@@ -1,11 +1,10 @@
-import { Routes } from '@angular/router';
+﻿import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   { path: 'favoritos', canActivate: [authGuard, roleGuard(['guest', 'host'])], loadComponent: () => import('./pages/favorites/favorites.component').then((m) => m.FavoritesComponent), title: 'Favoritos | Lúmina' },
   { path: 'mensajes', canActivate: [authGuard, roleGuard(['guest', 'host'])], loadComponent: () => import('./pages/messages/messages.component').then((m) => m.MessagesComponent), title: 'Mensajes | Lúmina' },
-  { path: 'mapas', canActivate: [authGuard], loadComponent: () => import('./pages/maps/maps.component').then((m) => m.MapsComponent), title: 'Mapa | Lúmina' },
   { path: 'seguridad', canActivate: [authGuard], loadComponent: () => import('./pages/security/security.component').then((m) => m.SecurityComponent), title: 'Seguridad | Lúmina' },
   { path: 'verificar-acceso', loadComponent: () => import('./pages/verify/verify.component').then((m) => m.VerifyComponent), title: 'Verificar acceso | Lúmina' },
   { path: '', canActivate: [authGuard], loadComponent: () => import('./pages/home/home.component').then((m) => m.HomeComponent), title: 'Inicio | Lúmina' },
