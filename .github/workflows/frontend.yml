@@ -15,6 +15,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -25,6 +27,11 @@ jobs:
 
       - name: Ejecutar pruebas y generar cobertura
         run: npx vitest run --coverage --maxWorkers=2 --coverage.reporter=lcov --coverage.reporter=text
+
+      - name: Analizar proyecto con SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - run: npm run build
 
