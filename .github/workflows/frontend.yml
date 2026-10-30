@@ -1,19 +1,31 @@
+
 name: Frontend CI
+
 on:
   pull_request:
   push:
     branches: [main]
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+
       - run: npm ci
+
+      - name: Ejecutar pruebas y generar cobertura
+        run: npx vitest run --coverage --maxWorkers=2 --coverage.reporter=lcov --coverage.reporter=text
+
       - run: npm run build
+
       - run: docker build -t lumina:ci .
