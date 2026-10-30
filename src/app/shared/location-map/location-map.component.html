@@ -1,16 +1,16 @@
 ﻿
 @if (loading()) {
   <p>Cargando mapa...</p>
-} @else if (url(); as source) {
-  <iframe
-    [src]="source"
-    title="Mapa de ubicación del alojamiento"
-    loading="lazy"
-    referrerpolicy="strict-origin-when-cross-origin">
-  </iframe>
+} @else if (validPoint(); as location) {
+  <div
+    #mapContainer
+    class="location-map"
+    role="region"
+    aria-label="Mapa interactivo de ubicación del alojamiento">
+  </div>
 
   <p>
-    {{ point()?.label }} ·
+    {{ location.label }} ·
     <a
       [href]="external()"
       target="_blank"
@@ -20,15 +20,12 @@
   </p>
 
   <small>
-    ©
-    <a
-      href="https://www.openstreetmap.org/copyright"
-      target="_blank"
-      rel="noopener noreferrer">
-      OpenStreetMap contributors
-    </a>.
+    © OpenStreetMap contributors.
     Requiere conexión a internet.
   </small>
 } @else {
-  <p>Este alojamiento todavía no tiene una ubicación en el mapa.</p>
+  <p>
+    Este alojamiento todavía no tiene una
+    ubicación en el mapa.
+  </p>
 }

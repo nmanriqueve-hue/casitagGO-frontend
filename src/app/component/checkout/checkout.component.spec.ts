@@ -91,8 +91,10 @@ describe('CheckoutComponent', () => {
     });
 
     component = TestBed.runInInjectionContext(
-      () => new CheckoutComponent()
-    );
+  () => new CheckoutComponent()
+);
+
+component.ngOnInit();
   };
 
   const aceptarPago = () => {

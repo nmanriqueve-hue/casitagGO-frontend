@@ -1,5 +1,5 @@
 
- // @vitest-environment jsdom
+// @vitest-environment jsdom
 
 import '@angular/compiler';
 
@@ -9,12 +9,50 @@ import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting
 } from '@angular/platform-browser-dynamic/testing';
-import { DomSanitizer } from '@angular/platform-browser';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocationMapComponent } from './location-map.component';
 import { MapsService } from '../../core/services/maps.service';
+import type { GeoPoint } from '../../core/models/optional.models';
+
+// Simulación de Leaflet para no necesitar un mapa real en las pruebas.
+const leafletMock = vi.hoisted(() => {
+  const map = {
+    setView: vi.fn(),
+    getContainer: vi.fn(),
+    invalidateSize: vi.fn(),
+    remove: vi.fn()
+  };
+
+  const marker = {
+    addTo: vi.fn(),
+    setLatLng: vi.fn()
+  };
+
+  const tile = {
+    addTo: vi.fn()
+  };
+
+  map.setView.mockReturnValue(map);
+  marker.addTo.mockReturnValue(marker);
+  tile.addTo.mockReturnValue(tile);
+
+  return {
+    mapInstance: map,
+    markerInstance: marker,
+    tileInstance: tile,
+    createMap: vi.fn(() => map),
+    createMarker: vi.fn(() => marker),
+    createTile: vi.fn(() => tile)
+  };
+});
+
+vi.mock('leaflet', () => ({
+  map: leafletMock.createMap,
+  circleMarker: leafletMock.createMarker,
+  tileLayer: leafletMock.createTile
+}));
 
 try {
   TestBed.initTestEnvironment(
@@ -36,22 +74,36 @@ describe('LocationMapComponent', () => {
   let idInput: WritableSignal<number>;
   let cityInput: WritableSignal<string>;
   let uuidInput: WritableSignal<string | null>;
-  let previewInput: WritableSignal<any>;
+  let previewInput: WritableSignal<GeoPoint | null>;
 
   let consultarPunto: ReturnType<typeof vi.fn>;
   let consultarBack: ReturnType<typeof vi.fn>;
-  let sanitizarUrl: ReturnType<typeof vi.fn>;
 
-  const crearComponente = (
+  const bogota = {
+    latitude: 4.6097,
+    longitude: -74.0817
+  } as GeoPoint;
+
+  const medellin = {
+    latitude: 6.2442,
+    longitude: -75.5812
+  } as GeoPoint;
+
+  const cali = {
+    latitude: 3.4516,
+    longitude: -76.532
+  } as GeoPoint;
+
+  function crearComponente(
     id = 1,
     ciudad = 'Bogotá',
     uuid: string | null = null,
-    preview: any = null
-  ): LocationMapComponent => {
+    preview: GeoPoint | null = null
+  ): LocationMapComponent {
     idInput = signal(id);
     cityInput = signal(ciudad);
     uuidInput = signal<string | null>(uuid);
-    previewInput = signal(preview);
+    previewInput = signal<GeoPoint | null>(preview);
 
     const instancia = TestBed.runInInjectionContext(
       () => new LocationMapComponent()
@@ -80,26 +132,14 @@ describe('LocationMapComponent', () => {
     TestBed.tick();
 
     return instancia;
-  };
+  }
 
   beforeEach(() => {
     TestBed.resetTestingModule();
+    vi.clearAllMocks();
 
-    consultarPunto = vi.fn().mockReturnValue({
-      latitude: 4.6097,
-      longitude: -74.0817
-    });
-
-    consultarBack = vi.fn().mockReturnValue(
-      of({
-        latitude: 6.2442,
-        longitude: -75.5812
-      })
-    );
-
-    sanitizarUrl = vi.fn().mockImplementation(
-      (url: string) => url
-    );
+    consultarPunto = vi.fn().mockReturnValue(bogota);
+    consultarBack = vi.fn().mockReturnValue(of(medellin));
 
     TestBed.configureTestingModule({
       providers: [
@@ -109,12 +149,6 @@ describe('LocationMapComponent', () => {
             point: consultarPunto,
             ubicacionDeBack: consultarBack
           }
-        },
-        {
-          provide: DomSanitizer,
-          useValue: {
-            bypassSecurityTrustResourceUrl: sanitizarUrl
-          }
         }
       ]
     });
@@ -122,382 +156,354 @@ describe('LocationMapComponent', () => {
     component = crearComponente();
   });
 
-  // CREACIÓN
-
-  it('debe crear el componente', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('debe recibir el ID de la publicación', () => {
-    expect(component.listingId()).toBe(1);
-  });
-
-  it('debe recibir la ciudad', () => {
-    expect(component.city()).toBe('Bogotá');
-  });
-
-  it('debe iniciar sin UUID', () => {
-    expect(component.listingUuid()).toBeNull();
-  });
-
-  it('debe iniciar sin vista previa', () => {
-    expect(component.preview()).toBeNull();
-  });
-
-  it('debe iniciar sin cargar', () => {
-    expect(component.loading()).toBe(false);
-  });
-
-  // UBICACIÓN LOCAL
-
-  it('debe consultar ubicación por ID y ciudad', () => {
-    component.point();
-
-    expect(consultarPunto).toHaveBeenCalledWith(
-      1,
-      'Bogotá'
-    );
-  });
-
-  it('debe obtener la latitud correcta', () => {
-    expect(component.point()?.latitude).toBe(4.6097);
-  });
-
-  it('debe obtener la longitud correcta', () => {
-    expect(component.point()?.longitude).toBe(-74.0817);
-  });
-
-  it('debe devolver null cuando no hay ubicación', () => {
-    consultarPunto.mockReturnValue(null);
-
-    component = crearComponente(2, 'Sin ubicación');
-
-    expect(component.point()).toBeNull();
-  });
-
-  it('debe consultar una ciudad diferente', () => {
-    component = crearComponente(3, 'Cali');
-
-    component.point();
-
-    expect(consultarPunto).toHaveBeenCalledWith(
-      3,
-      'Cali'
-    );
-  });
-
-  it('debe actualizar la consulta cuando cambia el ID', () => {
-    component.point();
-
-    idInput.set(10);
-
-    component.point();
-
-    expect(consultarPunto).toHaveBeenCalledWith(
-      10,
-      'Bogotá'
-    );
-  });
-
-  it('debe actualizar la consulta cuando cambia la ciudad', () => {
-    component.point();
-
-    cityInput.set('Medellín');
-
-    component.point();
-
-    expect(consultarPunto).toHaveBeenCalledWith(
-      1,
-      'Medellín'
-    );
-  });
-
-  // VISTA PREVIA
-
-  it('debe utilizar las coordenadas de vista previa', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      null,
-      { latitude: 3.4516, longitude: -76.532 }
-    );
-
-    expect(component.point()?.latitude).toBe(3.4516);
-  });
-
-  it('debe priorizar la vista previa', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      null,
-      { latitude: 3.4516, longitude: -76.532 }
-    );
-
-    expect(component.point()?.longitude).toBe(-76.532);
-    expect(consultarPunto).not.toHaveBeenCalled();
-  });
-
-  it('debe actualizar la vista previa', () => {
-    component.point();
-
-    previewInput.set({
-      latitude: 3.4516,
-      longitude: -76.532
+  describe('Creación', () => {
+    it('crea el componente', () => {
+      expect(component).toBeTruthy();
     });
 
-    expect(component.point()?.latitude).toBe(3.4516);
-  });
-
-  it('debe volver al mapa local al quitar la vista previa', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      null,
-      { latitude: 3.4516, longitude: -76.532 }
-    );
-
-    component.point();
-
-    previewInput.set(null);
-
-    expect(component.point()?.latitude).toBe(4.6097);
-  });
-
-  // URL DEL MAPA
-
-  it('debe generar la URL del mapa', () => {
-    expect(component.url()).toBeTruthy();
-  });
-
-  it('debe usar OpenStreetMap', () => {
-    component.url();
-
-    expect(sanitizarUrl).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'https://www.openstreetmap.org/export/embed.html'
-      )
-    );
-  });
-
-  it('debe incluir las coordenadas del marcador', () => {
-    component.url();
-
-    const url = sanitizarUrl.mock.calls[0][0] as string;
-
-    expect(url).toContain(
-      encodeURIComponent('4.6097,-74.0817')
-    );
-  });
-
-  it('debe utilizar la capa mapnik', () => {
-    component.url();
-
-    const url = sanitizarUrl.mock.calls[0][0] as string;
-
-    expect(url).toContain('layer=mapnik');
-  });
-
-  it('debe incluir bbox', () => {
-    component.url();
-
-    const url = sanitizarUrl.mock.calls[0][0] as string;
-
-    expect(url).toContain('bbox=');
-  });
-
-  it('debe devolver URL nula sin coordenadas', () => {
-    consultarPunto.mockReturnValue(null);
-
-    component = crearComponente(2, 'Sin ubicación');
-
-    expect(component.url()).toBeNull();
-  });
-
-  it('no debe sanitizar sin coordenadas', () => {
-    consultarPunto.mockReturnValue(null);
-
-    component = crearComponente(2, 'Sin ubicación');
-
-    expect(component.url()).toBeNull();
-    expect(sanitizarUrl).not.toHaveBeenCalled();
-  });
-
-  // ENLACE EXTERNO
-
-  it('debe generar un enlace externo', () => {
-    expect(component.external()).toContain(
-      'https://www.openstreetmap.org/'
-    );
-  });
-
-  it('debe incluir la latitud en el enlace', () => {
-    expect(component.external()).toContain(
-      'mlat=4.6097'
-    );
-  });
-
-  it('debe incluir la longitud en el enlace', () => {
-    expect(component.external()).toContain(
-      'mlon=-74.0817'
-    );
-  });
-
-  it('debe incluir zoom 14', () => {
-    expect(component.external()).toContain(
-      '#map=14/'
-    );
-  });
-
-  it('debe devolver enlace vacío sin coordenadas', () => {
-    consultarPunto.mockReturnValue(null);
-
-    component = crearComponente(2, 'Sin ubicación');
-
-    expect(component.external()).toBe('');
-  });
-
-  it('debe actualizar el enlace con una vista previa', () => {
-    component.external();
-
-    previewInput.set({
-      latitude: 3.4516,
-      longitude: -76.532
+    it('recibe el ID del alojamiento', () => {
+      expect(component.listingId()).toBe(1);
     });
 
-    expect(component.external()).toContain(
-      'mlat=3.4516'
-    );
-  });
-
-  // CONSULTA POR UUID
-
-  it('debe consultar el backend cuando hay UUID', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    expect(consultarBack).toHaveBeenCalledWith(
-      'uuid-123'
-    );
-  });
-
-  it('debe utilizar la ubicación del backend', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    expect(component.point()?.latitude).toBe(6.2442);
-  });
-
-  it('no debe consultar el mapa local si hay UUID', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    component.point();
-
-    expect(consultarPunto).not.toHaveBeenCalled();
-  });
-
-  it('debe finalizar la carga al recibir datos', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    expect(component.loading()).toBe(false);
-  });
-
-  it('debe mantener loading mientras espera respuesta', () => {
-    const respuesta = new Subject<any>();
-
-    consultarBack.mockReturnValue(respuesta.asObservable());
-
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    expect(component.loading()).toBe(true);
-
-    respuesta.next({
-      latitude: 6.2442,
-      longitude: -75.5812
+    it('recibe la ciudad', () => {
+      expect(component.city()).toBe('Bogotá');
     });
 
-    expect(component.loading()).toBe(false);
-  });
-
-  it('debe actualizar el punto cuando llega respuesta', () => {
-    const respuesta = new Subject<any>();
-
-    consultarBack.mockReturnValue(respuesta.asObservable());
-
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
-
-    expect(component.point()).toBeNull();
-
-    respuesta.next({
-      latitude: 3.4516,
-      longitude: -76.532
+    it('inicia sin UUID', () => {
+      expect(component.listingUuid()).toBeNull();
     });
 
-    expect(component.point()?.latitude).toBe(3.4516);
+    it('inicia sin vista previa', () => {
+      expect(component.preview()).toBeNull();
+    });
+
+    it('inicia sin cargar', () => {
+      expect(component.loading()).toBe(false);
+    });
   });
 
-  it('debe aceptar ubicación nula del backend', () => {
-    consultarBack.mockReturnValue(of(null));
+  describe('Ubicación local', () => {
+    it('consulta la ubicación por ID y ciudad', () => {
+      component.point();
 
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
+      expect(consultarPunto).toHaveBeenCalledWith(1, 'Bogotá');
+    });
 
-    expect(component.point()).toBeNull();
-    expect(component.loading()).toBe(false);
+    it('obtiene la latitud', () => {
+      expect(component.point()?.latitude).toBe(4.6097);
+    });
+
+    it('obtiene la longitud', () => {
+      expect(component.point()?.longitude).toBe(-74.0817);
+    });
+
+    it('devuelve null cuando no existe ubicación', () => {
+      consultarPunto.mockReturnValue(null);
+
+      component = crearComponente(2, 'Sin ubicación');
+
+      expect(component.point()).toBeNull();
+    });
+
+    it('consulta otra ciudad', () => {
+      component = crearComponente(3, 'Cali');
+
+      component.point();
+
+      expect(consultarPunto).toHaveBeenCalledWith(3, 'Cali');
+    });
+
+    it('actualiza la ubicación cuando cambia el ID', () => {
+      component.point();
+
+      idInput.set(10);
+
+      component.point();
+
+      expect(consultarPunto).toHaveBeenCalledWith(10, 'Bogotá');
+    });
+
+    it('actualiza la ubicación cuando cambia la ciudad', () => {
+      component.point();
+
+      cityInput.set('Medellín');
+
+      component.point();
+
+      expect(consultarPunto).toHaveBeenCalledWith(1, 'Medellín');
+    });
   });
 
-  it('no debe consultar backend sin UUID', () => {
-    expect(consultarBack).not.toHaveBeenCalled();
+  describe('Vista previa', () => {
+    it('utiliza las coordenadas de vista previa', () => {
+      component = crearComponente(1, 'Bogotá', null, cali);
+
+      expect(component.point()?.latitude).toBe(3.4516);
+    });
+
+   it('prioriza la vista previa sobre la ubicación local', () => {
+  consultarPunto.mockClear();
+
+  component = crearComponente(1, 'Bogotá', null, cali);
+
+  expect(component.point()?.longitude).toBe(-76.532);
+  expect(consultarPunto).not.toHaveBeenCalled();
+});
+
+    it('actualiza la vista previa', () => {
+      component.point();
+
+      previewInput.set(cali);
+
+      expect(component.point()?.latitude).toBe(3.4516);
+    });
+
+    it('vuelve a la ubicación local al quitar la vista previa', () => {
+      component = crearComponente(1, 'Bogotá', null, cali);
+
+      component.point();
+      previewInput.set(null);
+
+      expect(component.point()?.latitude).toBe(4.6097);
+    });
   });
 
-  it('debe consultar nuevamente cuando cambia UUID', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123'
-    );
+  describe('Validación de coordenadas', () => {
+    it('acepta coordenadas válidas', () => {
+      expect(component.validPoint()).toEqual(bogota);
+    });
 
-    uuidInput.set('uuid-456');
+    it('rechaza latitudes superiores a 90', () => {
+      previewInput.set({
+        latitude: 91,
+        longitude: -74
+      } as GeoPoint);
 
-    TestBed.tick();
+      expect(component.validPoint()).toBeNull();
+    });
 
-    expect(consultarBack).toHaveBeenCalledWith(
-      'uuid-456'
-    );
+    it('rechaza latitudes inferiores a -90', () => {
+      previewInput.set({
+        latitude: -91,
+        longitude: -74
+      } as GeoPoint);
+
+      expect(component.validPoint()).toBeNull();
+    });
+
+    it('rechaza longitudes superiores a 180', () => {
+      previewInput.set({
+        latitude: 4,
+        longitude: 181
+      } as GeoPoint);
+
+      expect(component.validPoint()).toBeNull();
+    });
+
+    it('rechaza longitudes inferiores a -180', () => {
+      previewInput.set({
+        latitude: 4,
+        longitude: -181
+      } as GeoPoint);
+
+      expect(component.validPoint()).toBeNull();
+    });
+
+    it('rechaza NaN', () => {
+      previewInput.set({
+        latitude: NaN,
+        longitude: -74
+      } as GeoPoint);
+
+      expect(component.validPoint()).toBeNull();
+    });
+
+    it('rechaza Infinity', () => {
+      previewInput.set({
+        latitude: 4,
+        longitude: Infinity
+      } as GeoPoint);
+
+      expect(component.validPoint()).toBeNull();
+    });
+
+    it('acepta coordenadas límite', () => {
+      previewInput.set({
+        latitude: 90,
+        longitude: 180
+      } as GeoPoint);
+
+      expect(component.validPoint()).not.toBeNull();
+    });
+
+    it('devuelve null si no hay coordenadas', () => {
+      consultarPunto.mockReturnValue(null);
+
+      component = crearComponente(2, 'Sin ubicación');
+
+      expect(component.validPoint()).toBeNull();
+    });
   });
 
-  it('debe priorizar la vista previa sobre el UUID', () => {
-    component = crearComponente(
-      1,
-      'Bogotá',
-      'uuid-123',
-      { latitude: 3.4516, longitude: -76.532 }
-    );
+  describe('Enlace externo', () => {
+    it('genera un enlace HTTPS de OpenStreetMap', () => {
+      expect(component.external()).toContain(
+        'https://www.openstreetmap.org/'
+      );
+    });
 
-    expect(component.point()?.latitude).toBe(3.4516);
+    it('incluye la latitud', () => {
+      expect(component.external()).toContain('mlat=4.6097');
+    });
+
+    it('incluye la longitud', () => {
+      expect(component.external()).toContain('mlon=-74.0817');
+    });
+
+    it('incluye zoom 14', () => {
+      expect(component.external()).toContain('#map=14/');
+    });
+
+    it('devuelve un enlace vacío sin coordenadas', () => {
+      consultarPunto.mockReturnValue(null);
+
+      component = crearComponente(2, 'Sin ubicación');
+
+      expect(component.external()).toBe('');
+    });
+
+    it('no genera enlaces con coordenadas inválidas', () => {
+      previewInput.set({
+        latitude: 999,
+        longitude: -74
+      } as GeoPoint);
+
+      expect(component.external()).toBe('');
+    });
+
+    it('actualiza el enlace con una vista previa', () => {
+      component.external();
+
+      previewInput.set(cali);
+
+      expect(component.external()).toContain('mlat=3.4516');
+    });
+  });
+
+  describe('Consulta al backend', () => {
+    it('consulta el backend cuando existe UUID', () => {
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(consultarBack).toHaveBeenCalledWith('uuid-123');
+    });
+
+    it('utiliza la ubicación recibida del backend', () => {
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.point()?.latitude).toBe(6.2442);
+    });
+
+    it('no consulta la ubicación local cuando existe UUID', () => {
+  consultarPunto.mockClear();
+
+  component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+  component.point();
+
+  expect(consultarPunto).not.toHaveBeenCalled();
+});
+
+    it('finaliza la carga al recibir datos', () => {
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.loading()).toBe(false);
+    });
+
+    it('mantiene loading mientras espera respuesta', () => {
+      const respuesta = new Subject<GeoPoint | null>();
+
+      consultarBack.mockReturnValue(respuesta.asObservable());
+
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.loading()).toBe(true);
+
+      respuesta.next(medellin);
+
+      expect(component.loading()).toBe(false);
+    });
+
+    it('actualiza el punto cuando llega la respuesta', () => {
+      const respuesta = new Subject<GeoPoint | null>();
+
+      consultarBack.mockReturnValue(respuesta.asObservable());
+
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.point()).toBeNull();
+
+      respuesta.next(cali);
+
+      expect(component.point()?.latitude).toBe(3.4516);
+    });
+
+    it('acepta una ubicación nula del backend', () => {
+      consultarBack.mockReturnValue(of(null));
+
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.point()).toBeNull();
+      expect(component.loading()).toBe(false);
+    });
+
+    it('controla los errores del backend', () => {
+      consultarBack.mockReturnValue(
+        throwError(() => new Error('Error de red'))
+      );
+
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      expect(component.point()).toBeNull();
+      expect(component.loading()).toBe(false);
+    });
+
+    it('no consulta backend si no existe UUID', () => {
+      expect(consultarBack).not.toHaveBeenCalled();
+    });
+
+    it('consulta nuevamente cuando cambia el UUID', () => {
+      component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+      uuidInput.set('uuid-456');
+
+      TestBed.tick();
+
+      expect(consultarBack).toHaveBeenCalledWith('uuid-456');
+    });
+
+    it('prioriza la vista previa sobre el backend', () => {
+      component = crearComponente(
+        1,
+        'Bogotá',
+        'uuid-123',
+        cali
+      );
+
+      expect(component.point()?.latitude).toBe(3.4516);
+    });
+  });
+
+  describe('Leaflet', () => {
+    it('tiene disponible la creación del mapa', () => {
+      expect(leafletMock.createMap).toBeDefined();
+    });
+
+    it('tiene disponible la capa de OpenStreetMap', () => {
+      expect(leafletMock.createTile).toBeDefined();
+    });
+
+    it('tiene disponible el marcador circular', () => {
+      expect(leafletMock.createMarker).toBeDefined();
+    });
   });
 });

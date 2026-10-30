@@ -1,2 +1,15 @@
-:host { display: block; margin: 20px 0; } iframe { width: 100%; height: 330px; border: 1px solid var(--border); border-radius: 16px; } p { margin: 8px 0; } small { color: var(--muted); }
 
+.location-map {
+  width: 100%;
+  height: 320px;
+  min-height: 250px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+}
+
+.location-map:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

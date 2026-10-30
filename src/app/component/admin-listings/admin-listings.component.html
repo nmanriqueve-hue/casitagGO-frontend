@@ -1,8 +1,165 @@
-﻿<section class="page-shell"><div class="container">
-  <div class="page-heading"><div><p class="eyebrow">Moderación</p><h1>Publicaciones</h1><p>Revisa la información de los anuncios y bloquea los que sean engañosos.</p></div></div>
-  <div class="status-filter"><button type="button" [class.active]="filter() === 'TODAS'" (click)="filter.set('TODAS')">Todas</button><button type="button" [class.active]="filter() === 'ACTIVA'" (click)="filter.set('ACTIVA')">Activas</button><button type="button" [class.active]="filter() === 'BORRADOR'" (click)="filter.set('BORRADOR')">Borradores</button><button type="button" [class.active]="filter() === 'PAUSADA'" (click)="filter.set('PAUSADA')">Pausadas</button><button type="button" [class.active]="filter() === 'BLOQUEADA'" (click)="filter.set('BLOQUEADA')">Bloqueadas</button></div>
-  @if (cargando()) { <p class="p-3 mb-0">Cargando publicaciones...</p> }
-  @else if (errorCarga()) { <div class="alert alert-warning">{{ errorCarga() }}</div> }
-  @else { <div class="moderation-grid">@for (publicacion of visible(); track publicacion.id) { <article class="panel moderation-card"><div class="moderation-body"><div class="card-top"><span class="status-pill" [class]="'status-pill ' + publicacion.estado">{{ publicacion.estado.replace('_', ' ') }}</span><strong>{{ publicacion.precioNoche | currency:'COP':'symbol-narrow':'1.0-0' }} / noche</strong></div><h2>{{ publicacion.titulo }}</h2><p>{{ publicacion.ciudad }} · {{ publicacion.tipo.replace('_', ' ') }} · Creada el {{ publicacion.creadoEn | date:'dd/MM/yyyy' }}</p><p>Anfitrión: {{ publicacion.anfitrionNombre }} ({{ publicacion.anfitrionCorreo }})</p><div class="moderation-actions"><a class="btn btn-soft btn-sm" [routerLink]="['/alojamientos', publicacion.id]">Revisar detalle</a>@if (publicacion.estado !== 'BLOQUEADA') { <button class="btn btn-outline-danger btn-sm" type="button" (click)="abrir(publicacion)">Bloquear</button> }</div></div></article> } @empty { <div class="empty-state panel">No hay publicaciones en este estado.</div> }</div> }
-</div></section>
-@if (target(); as publicacion) { <div class="modal-backdrop-custom"><div class="modal-card-custom"><h2>Bloquear publicación</h2><p><strong>{{ publicacion.titulo }}</strong></p><p>Las reservas futuras se conservarán para auditoría y pasarán a revisión manual.</p><label class="form-label">Motivo del bloqueo</label><textarea class="form-control" rows="3" [(ngModel)]="reason" placeholder="Ej. Información engañosa o inconsistente"></textarea><div class="modal-actions"><button class="btn btn-light" type="button" (click)="cancelar()">Cancelar</button><button class="btn btn-danger" type="button" [disabled]="procesando() || !reason.trim()" (click)="block()">Bloquear publicación</button></div></div></div> }
+﻿
+<section class="page-shell">
+  <div class="container">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Moderación</p>
+        <h1>Publicaciones</h1>
+        <p>
+          Revisa la información de los anuncios y bloquea los que sean engañosos.
+        </p>
+      </div>
+    </div>
+
+    <div class="status-filter">
+      <button
+        type="button"
+        [class.active]="filter() === 'TODAS'"
+        (click)="filter.set('TODAS')">
+        Todas
+      </button>
+
+      <button
+        type="button"
+        [class.active]="filter() === 'ACTIVA'"
+        (click)="filter.set('ACTIVA')">
+        Activas
+      </button>
+
+      <button
+        type="button"
+        [class.active]="filter() === 'BORRADOR'"
+        (click)="filter.set('BORRADOR')">
+        Borradores
+      </button>
+
+      <button
+        type="button"
+        [class.active]="filter() === 'PAUSADA'"
+        (click)="filter.set('PAUSADA')">
+        Pausadas
+      </button>
+
+      <button
+        type="button"
+        [class.active]="filter() === 'BLOQUEADA'"
+        (click)="filter.set('BLOQUEADA')">
+        Bloqueadas
+      </button>
+    </div>
+
+    @if (cargando()) {
+      <p class="p-3 mb-0">Cargando publicaciones...</p>
+    }
+    @else if (errorCarga()) {
+      <div class="alert alert-warning">
+        {{ errorCarga() }}
+      </div>
+    }
+    @else {
+      <div class="moderation-grid">
+        @for (publicacion of visible(); track publicacion.id) {
+          <article class="panel moderation-card">
+            <div class="moderation-body">
+              <div class="card-top">
+                <span
+                  class="status-pill"
+                  [class]="'status-pill ' + publicacion.estado">
+                  {{ publicacion.estado.replace('_', ' ') }}
+                </span>
+
+                <strong>
+                  {{ publicacion.precioNoche | currency:'COP':'symbol-narrow':'1.0-0' }}
+                  / noche
+                </strong>
+              </div>
+
+              <h2>{{ publicacion.titulo }}</h2>
+
+              <p>
+                {{ publicacion.ciudad }} ·
+                {{ publicacion.tipo.replace('_', ' ') }} ·
+                Creada el {{ publicacion.creadoEn | date:'dd/MM/yyyy' }}
+              </p>
+
+              <p>
+                Anfitrión: {{ publicacion.anfitrionNombre }}
+                ({{ publicacion.anfitrionCorreo }})
+              </p>
+
+              <div class="moderation-actions">
+                <a
+                  class="btn btn-soft btn-sm"
+                  [routerLink]="['/alojamientos', publicacion.id]">
+                  Revisar detalle
+                </a>
+
+                @if (publicacion.estado !== 'BLOQUEADA') {
+                  <button
+                    class="btn btn-outline-danger btn-sm"
+                    type="button"
+                    (click)="abrir(publicacion)">
+                    Bloquear
+                  </button>
+                }
+              </div>
+            </div>
+          </article>
+        }
+        @empty {
+          <div class="empty-state panel">
+            No hay publicaciones en este estado.
+          </div>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+@if (target(); as publicacion) {
+  <div class="modal-backdrop-custom">
+    <div class="modal-card-custom">
+      <h2>Bloquear publicación</h2>
+
+      <p>
+        <strong>{{ publicacion.titulo }}</strong>
+      </p>
+
+      <p>
+        Las reservas futuras se conservarán para auditoría
+        y pasarán a revisión manual.
+      </p>
+
+      <label
+        class="form-label"
+        for="motivo-bloqueo">
+        Motivo del bloqueo
+      </label>
+
+      <textarea
+        id="motivo-bloqueo"
+        class="form-control"
+        rows="3"
+        [(ngModel)]="reason"
+        placeholder="Ej. Información engañosa o inconsistente">
+      </textarea>
+
+      <div class="modal-actions">
+        <button
+          class="btn btn-light"
+          type="button"
+          (click)="cancelar()">
+          Cancelar
+        </button>
+
+        <button
+          class="btn btn-danger"
+          type="button"
+          [disabled]="procesando() || !reason.trim()"
+          (click)="block()">
+          Bloquear publicación
+        </button>
+      </div>
+    </div>
+  </div>
+}
