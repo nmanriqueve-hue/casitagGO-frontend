@@ -1,509 +1,597 @@
 
-// @vitest-environment jsdom
+  // @vitest-environment jsdom
 
-import '@angular/compiler';
+  import '@angular/compiler';
 
-import { signal, type WritableSignal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import {
-  BrowserDynamicTestingModule,
-  platformBrowserDynamicTesting
-} from '@angular/platform-browser-dynamic/testing';
-import { of, Subject, throwError } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { LocationMapComponent } from './location-map.component';
-import { MapsService } from '../../core/services/maps.service';
-import type { GeoPoint } from '../../core/models/optional.models';
-
-// Simulación de Leaflet para no necesitar un mapa real en las pruebas.
-const leafletMock = vi.hoisted(() => {
-  const map = {
-    setView: vi.fn(),
-    getContainer: vi.fn(),
-    invalidateSize: vi.fn(),
-    remove: vi.fn()
-  };
-
-  const marker = {
-    addTo: vi.fn(),
-    setLatLng: vi.fn()
-  };
-
-  const tile = {
-    addTo: vi.fn()
-  };
-
-  map.setView.mockReturnValue(map);
-  marker.addTo.mockReturnValue(marker);
-  tile.addTo.mockReturnValue(tile);
-
-  return {
-    mapInstance: map,
-    markerInstance: marker,
-    tileInstance: tile,
-    createMap: vi.fn(() => map),
-    createMarker: vi.fn(() => marker),
-    createTile: vi.fn(() => tile)
-  };
-});
-
-vi.mock('leaflet', () => ({
-  map: leafletMock.createMap,
-  circleMarker: leafletMock.createMarker,
-  tileLayer: leafletMock.createTile
-}));
-
-try {
-  TestBed.initTestEnvironment(
+  import { signal, type WritableSignal } from '@angular/core';
+  import { TestBed } from '@angular/core/testing';
+  import {
     BrowserDynamicTestingModule,
-    platformBrowserDynamicTesting()
-  );
-} catch (error) {
-  if (
-    !(error instanceof Error) ||
-    !error.message.includes('already been initialized')
-  ) {
-    throw error;
-  }
-}
+    platformBrowserDynamicTesting
+  } from '@angular/platform-browser-dynamic/testing';
+  import { of, Subject, throwError } from 'rxjs';
+  import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('LocationMapComponent', () => {
-  let component: LocationMapComponent;
+  import { LocationMapComponent } from './location-map.component';
+  import { MapsService } from '../../core/services/maps.service';
+  import type { GeoPoint } from '../../core/models/optional.models';
 
-  let idInput: WritableSignal<number>;
-  let cityInput: WritableSignal<string>;
-  let uuidInput: WritableSignal<string | null>;
-  let previewInput: WritableSignal<GeoPoint | null>;
+  const leafletMock = vi.hoisted(() => {
+    const map = {
+      setView: vi.fn(),
+      getContainer: vi.fn(),
+      invalidateSize: vi.fn(),
+      remove: vi.fn()
+    };
 
-  let consultarPunto: ReturnType<typeof vi.fn>;
-  let consultarBack: ReturnType<typeof vi.fn>;
+    const marker = {
+      addTo: vi.fn(),
+      setLatLng: vi.fn()
+    };
 
-  const bogota = {
-    latitude: 4.6097,
-    longitude: -74.0817
-  } as GeoPoint;
+    const tile = {
+      addTo: vi.fn()
+    };
 
-  const medellin = {
-    latitude: 6.2442,
-    longitude: -75.5812
-  } as GeoPoint;
+    map.setView.mockReturnValue(map);
+    marker.addTo.mockReturnValue(marker);
+    tile.addTo.mockReturnValue(tile);
 
-  const cali = {
-    latitude: 3.4516,
-    longitude: -76.532
-  } as GeoPoint;
+    return {
+      mapInstance: map,
+      markerInstance: marker,
+      tileInstance: tile,
+      createMap: vi.fn(() => map),
+      createMarker: vi.fn(() => marker),
+      createTile: vi.fn(() => tile)
+    };
+  });
 
-  function crearComponente(
-    id = 1,
-    ciudad = 'Bogotá',
-    uuid: string | null = null,
-    preview: GeoPoint | null = null
-  ): LocationMapComponent {
-    idInput = signal(id);
-    cityInput = signal(ciudad);
-    uuidInput = signal<string | null>(uuid);
-    previewInput = signal<GeoPoint | null>(preview);
+  vi.mock('leaflet', () => ({
+    map: leafletMock.createMap,
+    circleMarker: leafletMock.createMarker,
+    tileLayer: leafletMock.createTile
+  }));
 
-    const instancia = TestBed.runInInjectionContext(
-      () => new LocationMapComponent()
+  try {
+    TestBed.initTestEnvironment(
+      BrowserDynamicTestingModule,
+      platformBrowserDynamicTesting()
     );
-
-    Object.defineProperty(instancia, 'listingId', {
-      value: idInput.asReadonly(),
-      configurable: true
-    });
-
-    Object.defineProperty(instancia, 'city', {
-      value: cityInput.asReadonly(),
-      configurable: true
-    });
-
-    Object.defineProperty(instancia, 'listingUuid', {
-      value: uuidInput.asReadonly(),
-      configurable: true
-    });
-
-    Object.defineProperty(instancia, 'preview', {
-      value: previewInput.asReadonly(),
-      configurable: true
-    });
-
-    TestBed.tick();
-
-    return instancia;
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !error.message.includes('already been initialized')
+    ) {
+      throw error;
+    }
   }
 
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-    vi.clearAllMocks();
-
-    consultarPunto = vi.fn().mockReturnValue(bogota);
-    consultarBack = vi.fn().mockReturnValue(of(medellin));
-
-    TestBed.configureTestingModule({
-      providers: [
-        {
-          provide: MapsService,
-          useValue: {
-            point: consultarPunto,
-            ubicacionDeBack: consultarBack
-          }
-        }
-      ]
-    });
-
-    component = crearComponente();
-  });
-
-  describe('Creación', () => {
-    it('crea el componente', () => {
-      expect(component).toBeTruthy();
-    });
-
-    it('recibe el ID del alojamiento', () => {
-      expect(component.listingId()).toBe(1);
-    });
-
-    it('recibe la ciudad', () => {
-      expect(component.city()).toBe('Bogotá');
-    });
-
-    it('inicia sin UUID', () => {
-      expect(component.listingUuid()).toBeNull();
-    });
-
-    it('inicia sin vista previa', () => {
-      expect(component.preview()).toBeNull();
-    });
-
-    it('inicia sin cargar', () => {
-      expect(component.loading()).toBe(false);
-    });
-  });
-
-  describe('Ubicación local', () => {
-    it('consulta la ubicación por ID y ciudad', () => {
-      component.point();
-
-      expect(consultarPunto).toHaveBeenCalledWith(1, 'Bogotá');
-    });
-
-    it('obtiene la latitud', () => {
-      expect(component.point()?.latitude).toBe(4.6097);
-    });
-
-    it('obtiene la longitud', () => {
-      expect(component.point()?.longitude).toBe(-74.0817);
-    });
-
-    it('devuelve null cuando no existe ubicación', () => {
-      consultarPunto.mockReturnValue(null);
-
-      component = crearComponente(2, 'Sin ubicación');
-
-      expect(component.point()).toBeNull();
-    });
-
-    it('consulta otra ciudad', () => {
-      component = crearComponente(3, 'Cali');
-
-      component.point();
-
-      expect(consultarPunto).toHaveBeenCalledWith(3, 'Cali');
-    });
-
-    it('actualiza la ubicación cuando cambia el ID', () => {
-      component.point();
-
-      idInput.set(10);
-
-      component.point();
-
-      expect(consultarPunto).toHaveBeenCalledWith(10, 'Bogotá');
-    });
-
-    it('actualiza la ubicación cuando cambia la ciudad', () => {
-      component.point();
-
-      cityInput.set('Medellín');
-
-      component.point();
-
-      expect(consultarPunto).toHaveBeenCalledWith(1, 'Medellín');
-    });
-  });
-
-  describe('Vista previa', () => {
-    it('utiliza las coordenadas de vista previa', () => {
-      component = crearComponente(1, 'Bogotá', null, cali);
-
-      expect(component.point()?.latitude).toBe(3.4516);
-    });
-
-   it('prioriza la vista previa sobre la ubicación local', () => {
-  consultarPunto.mockClear();
-
-  component = crearComponente(1, 'Bogotá', null, cali);
-
-  expect(component.point()?.longitude).toBe(-76.532);
-  expect(consultarPunto).not.toHaveBeenCalled();
-});
-
-    it('actualiza la vista previa', () => {
-      component.point();
-
-      previewInput.set(cali);
-
-      expect(component.point()?.latitude).toBe(3.4516);
-    });
-
-    it('vuelve a la ubicación local al quitar la vista previa', () => {
-      component = crearComponente(1, 'Bogotá', null, cali);
-
-      component.point();
-      previewInput.set(null);
-
-      expect(component.point()?.latitude).toBe(4.6097);
-    });
-  });
-
-  describe('Validación de coordenadas', () => {
-    it('acepta coordenadas válidas', () => {
-      expect(component.validPoint()).toEqual(bogota);
-    });
-
-    it('rechaza latitudes superiores a 90', () => {
-      previewInput.set({
-        latitude: 91,
-        longitude: -74
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('rechaza latitudes inferiores a -90', () => {
-      previewInput.set({
-        latitude: -91,
-        longitude: -74
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('rechaza longitudes superiores a 180', () => {
-      previewInput.set({
-        latitude: 4,
-        longitude: 181
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('rechaza longitudes inferiores a -180', () => {
-      previewInput.set({
-        latitude: 4,
-        longitude: -181
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('rechaza NaN', () => {
-      previewInput.set({
-        latitude: NaN,
-        longitude: -74
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('rechaza Infinity', () => {
-      previewInput.set({
-        latitude: 4,
-        longitude: Infinity
-      } as GeoPoint);
-
-      expect(component.validPoint()).toBeNull();
-    });
-
-    it('acepta coordenadas límite', () => {
-      previewInput.set({
-        latitude: 90,
-        longitude: 180
-      } as GeoPoint);
-
-      expect(component.validPoint()).not.toBeNull();
-    });
-
-    it('devuelve null si no hay coordenadas', () => {
-      consultarPunto.mockReturnValue(null);
-
-      component = crearComponente(2, 'Sin ubicación');
-
-      expect(component.validPoint()).toBeNull();
-    });
-  });
-
-  describe('Enlace externo', () => {
-    it('genera un enlace HTTPS de OpenStreetMap', () => {
-      expect(component.external()).toContain(
-        'https://www.openstreetmap.org/'
-      );
-    });
-
-    it('incluye la latitud', () => {
-      expect(component.external()).toContain('mlat=4.6097');
-    });
-
-    it('incluye la longitud', () => {
-      expect(component.external()).toContain('mlon=-74.0817');
-    });
-
-    it('incluye zoom 14', () => {
-      expect(component.external()).toContain('#map=14/');
-    });
-
-    it('devuelve un enlace vacío sin coordenadas', () => {
-      consultarPunto.mockReturnValue(null);
-
-      component = crearComponente(2, 'Sin ubicación');
-
-      expect(component.external()).toBe('');
-    });
-
-    it('no genera enlaces con coordenadas inválidas', () => {
-      previewInput.set({
-        latitude: 999,
-        longitude: -74
-      } as GeoPoint);
-
-      expect(component.external()).toBe('');
-    });
-
-    it('actualiza el enlace con una vista previa', () => {
-      component.external();
-
-      previewInput.set(cali);
-
-      expect(component.external()).toContain('mlat=3.4516');
-    });
-  });
-
-  describe('Consulta al backend', () => {
-    it('consulta el backend cuando existe UUID', () => {
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(consultarBack).toHaveBeenCalledWith('uuid-123');
-    });
-
-    it('utiliza la ubicación recibida del backend', () => {
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(component.point()?.latitude).toBe(6.2442);
-    });
-
-    it('no consulta la ubicación local cuando existe UUID', () => {
-  consultarPunto.mockClear();
-
-  component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-  component.point();
-
-  expect(consultarPunto).not.toHaveBeenCalled();
-});
-
-    it('finaliza la carga al recibir datos', () => {
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(component.loading()).toBe(false);
-    });
-
-    it('mantiene loading mientras espera respuesta', () => {
-      const respuesta = new Subject<GeoPoint | null>();
-
-      consultarBack.mockReturnValue(respuesta.asObservable());
-
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(component.loading()).toBe(true);
-
-      respuesta.next(medellin);
-
-      expect(component.loading()).toBe(false);
-    });
-
-    it('actualiza el punto cuando llega la respuesta', () => {
-      const respuesta = new Subject<GeoPoint | null>();
-
-      consultarBack.mockReturnValue(respuesta.asObservable());
-
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(component.point()).toBeNull();
-
-      respuesta.next(cali);
-
-      expect(component.point()?.latitude).toBe(3.4516);
-    });
-
-    it('acepta una ubicación nula del backend', () => {
-      consultarBack.mockReturnValue(of(null));
-
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      expect(component.point()).toBeNull();
-      expect(component.loading()).toBe(false);
-    });
-
-    it('controla los errores del backend', () => {
-      consultarBack.mockReturnValue(
-        throwError(() => new Error('Error de red'))
+  describe('LocationMapComponent', () => {
+    let component: LocationMapComponent;
+
+    let idInput: WritableSignal<number>;
+    let cityInput: WritableSignal<string>;
+    let uuidInput: WritableSignal<string | null>;
+    let previewInput: WritableSignal<GeoPoint | null>;
+
+    let consultarPunto: ReturnType<typeof vi.fn>;
+    let consultarBack: ReturnType<typeof vi.fn>;
+
+    const bogota = {
+      latitude: 4.6097,
+      longitude: -74.0817
+    } as GeoPoint;
+
+    const medellin = {
+      latitude: 6.2442,
+      longitude: -75.5812
+    } as GeoPoint;
+
+    const cali = {
+      latitude: 3.4516,
+      longitude: -76.532
+    } as GeoPoint;
+
+    function crearComponente(
+      id = 1,
+      ciudad = 'Bogotá',
+      uuid: string | null = null,
+      preview: GeoPoint | null = null
+    ): LocationMapComponent {
+      idInput = signal(id);
+      cityInput = signal(ciudad);
+      uuidInput = signal<string | null>(uuid);
+      previewInput = signal<GeoPoint | null>(preview);
+
+      const instancia = TestBed.runInInjectionContext(
+        () => new LocationMapComponent()
       );
 
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
+      Object.defineProperty(instancia, 'listingId', {
+        value: idInput.asReadonly(),
+        configurable: true
+      });
 
-      expect(component.point()).toBeNull();
-      expect(component.loading()).toBe(false);
-    });
+      Object.defineProperty(instancia, 'city', {
+        value: cityInput.asReadonly(),
+        configurable: true
+      });
 
-    it('no consulta backend si no existe UUID', () => {
-      expect(consultarBack).not.toHaveBeenCalled();
-    });
+      Object.defineProperty(instancia, 'listingUuid', {
+        value: uuidInput.asReadonly(),
+        configurable: true
+      });
 
-    it('consulta nuevamente cuando cambia el UUID', () => {
-      component = crearComponente(1, 'Bogotá', 'uuid-123');
-
-      uuidInput.set('uuid-456');
+      Object.defineProperty(instancia, 'preview', {
+        value: previewInput.asReadonly(),
+        configurable: true
+      });
 
       TestBed.tick();
 
-      expect(consultarBack).toHaveBeenCalledWith('uuid-456');
+      return instancia;
+    }
+
+    beforeEach(() => {
+      TestBed.resetTestingModule();
+      vi.clearAllMocks();
+
+      consultarPunto = vi.fn().mockReturnValue(bogota);
+      consultarBack = vi.fn().mockReturnValue(of(medellin));
+
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: MapsService,
+            useValue: {
+              point: consultarPunto,
+              ubicacionDeBack: consultarBack
+            }
+          }
+        ]
+      });
+
+      component = crearComponente();
     });
 
-    it('prioriza la vista previa sobre el backend', () => {
-      component = crearComponente(
-        1,
-        'Bogotá',
-        'uuid-123',
-        cali
-      );
+    describe('Creación', () => {
+      it('crea el componente', () => {
+        expect(component).toBeTruthy();
+      });
 
-      expect(component.point()?.latitude).toBe(3.4516);
+      it('recibe el ID del alojamiento', () => {
+        expect(component.listingId()).toBe(1);
+      });
+
+      it('recibe la ciudad', () => {
+        expect(component.city()).toBe('Bogotá');
+      });
+
+      it('inicia sin UUID', () => {
+        expect(component.listingUuid()).toBeNull();
+      });
+
+      it('inicia sin vista previa', () => {
+        expect(component.preview()).toBeNull();
+      });
+
+      it('inicia sin cargar', () => {
+        expect(component.loading()).toBe(false);
+      });
     });
+
+    describe('Ubicación local', () => {
+      it('consulta la ubicación por ID y ciudad', () => {
+        component.point();
+
+        expect(consultarPunto).toHaveBeenCalledWith(1, 'Bogotá');
+      });
+
+      it('obtiene la latitud', () => {
+        expect(component.point()?.latitude).toBe(4.6097);
+      });
+
+      it('obtiene la longitud', () => {
+        expect(component.point()?.longitude).toBe(-74.0817);
+      });
+
+      it('devuelve null cuando no existe ubicación', () => {
+        consultarPunto.mockReturnValue(null);
+
+        component = crearComponente(2, 'Sin ubicación');
+
+        expect(component.point()).toBeNull();
+      });
+
+      it('consulta otra ciudad', () => {
+        component = crearComponente(3, 'Cali');
+
+        component.point();
+
+        expect(consultarPunto).toHaveBeenCalledWith(3, 'Cali');
+      });
+
+      it('actualiza la ubicación cuando cambia el ID', () => {
+        component.point();
+
+        idInput.set(10);
+
+        component.point();
+
+        expect(consultarPunto).toHaveBeenCalledWith(10, 'Bogotá');
+      });
+
+      it('actualiza la ubicación cuando cambia la ciudad', () => {
+        component.point();
+
+        cityInput.set('Medellín');
+
+        component.point();
+
+        expect(consultarPunto).toHaveBeenCalledWith(1, 'Medellín');
+      });
+    });
+
+    describe('Vista previa', () => {
+      it('utiliza las coordenadas de vista previa', () => {
+        component = crearComponente(1, 'Bogotá', null, cali);
+
+        expect(component.point()?.latitude).toBe(3.4516);
+      });
+
+      it('prioriza la vista previa sobre la ubicación local', () => {
+        consultarPunto.mockClear();
+
+        component = crearComponente(1, 'Bogotá', null, cali);
+
+        expect(component.point()?.longitude).toBe(-76.532);
+        expect(consultarPunto).not.toHaveBeenCalled();
+      });
+
+      it('actualiza la vista previa', () => {
+        component.point();
+
+        previewInput.set(cali);
+
+        expect(component.point()?.latitude).toBe(3.4516);
+      });
+
+      it('vuelve a la ubicación local al quitar la vista previa', () => {
+        component = crearComponente(1, 'Bogotá', null, cali);
+
+        component.point();
+        previewInput.set(null);
+
+        expect(component.point()?.latitude).toBe(4.6097);
+      });
+    });
+
+    describe('Validación de coordenadas', () => {
+      it('acepta coordenadas válidas', () => {
+        expect(component.validPoint()).toEqual(bogota);
+      });
+
+      it('rechaza latitudes superiores a 90', () => {
+        previewInput.set({
+          latitude: 91,
+          longitude: -74
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('rechaza latitudes inferiores a -90', () => {
+        previewInput.set({
+          latitude: -91,
+          longitude: -74
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('rechaza longitudes superiores a 180', () => {
+        previewInput.set({
+          latitude: 4,
+          longitude: 181
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('rechaza longitudes inferiores a -180', () => {
+        previewInput.set({
+          latitude: 4,
+          longitude: -181
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('rechaza NaN', () => {
+        previewInput.set({
+          latitude: NaN,
+          longitude: -74
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('rechaza Infinity', () => {
+        previewInput.set({
+          latitude: 4,
+          longitude: Infinity
+        } as GeoPoint);
+
+        expect(component.validPoint()).toBeNull();
+      });
+
+      it('acepta coordenadas límite', () => {
+        previewInput.set({
+          latitude: 90,
+          longitude: 180
+        } as GeoPoint);
+
+        expect(component.validPoint()).not.toBeNull();
+      });
+
+      it('devuelve null si no hay coordenadas', () => {
+        consultarPunto.mockReturnValue(null);
+
+        component = crearComponente(2, 'Sin ubicación');
+
+        expect(component.validPoint()).toBeNull();
+      });
+    });
+
+    describe('Enlace externo', () => {
+      it('genera un enlace HTTPS de OpenStreetMap', () => {
+        expect(component.external()).toContain(
+          'https://www.openstreetmap.org/'
+        );
+      });
+
+      it('incluye la latitud', () => {
+        expect(component.external()).toContain('mlat=4.6097');
+      });
+
+      it('incluye la longitud', () => {
+        expect(component.external()).toContain('mlon=-74.0817');
+      });
+
+      it('incluye zoom 14', () => {
+        expect(component.external()).toContain('#map=14/');
+      });
+
+      it('devuelve un enlace vacío sin coordenadas', () => {
+        consultarPunto.mockReturnValue(null);
+
+        component = crearComponente(2, 'Sin ubicación');
+
+        expect(component.external()).toBe('');
+      });
+
+      it('no genera enlaces con coordenadas inválidas', () => {
+        previewInput.set({
+          latitude: 999,
+          longitude: -74
+        } as GeoPoint);
+
+        expect(component.external()).toBe('');
+      });
+
+      it('actualiza el enlace con una vista previa', () => {
+        component.external();
+
+        previewInput.set(cali);
+
+        expect(component.external()).toContain('mlat=3.4516');
+      });
+    });
+
+    describe('Consulta al backend', () => {
+      it('consulta el backend cuando existe UUID', () => {
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(consultarBack).toHaveBeenCalledWith('uuid-123');
+      });
+
+      it('utiliza la ubicación recibida del backend', () => {
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.point()?.latitude).toBe(6.2442);
+      });
+
+      it('no consulta la ubicación local cuando existe UUID', () => {
+        consultarPunto.mockClear();
+
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        component.point();
+
+        expect(consultarPunto).not.toHaveBeenCalled();
+      });
+
+      it('finaliza la carga al recibir datos', () => {
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.loading()).toBe(false);
+      });
+
+      it('mantiene loading mientras espera respuesta', () => {
+        const respuesta = new Subject<GeoPoint | null>();
+
+        consultarBack.mockReturnValue(respuesta.asObservable());
+
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.loading()).toBe(true);
+
+        respuesta.next(medellin);
+
+        expect(component.loading()).toBe(false);
+      });
+
+      it('actualiza el punto cuando llega la respuesta', () => {
+        const respuesta = new Subject<GeoPoint | null>();
+
+        consultarBack.mockReturnValue(respuesta.asObservable());
+
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.point()).toBeNull();
+
+        respuesta.next(cali);
+
+        expect(component.point()?.latitude).toBe(3.4516);
+      });
+
+      it('acepta una ubicación nula del backend', () => {
+        consultarBack.mockReturnValue(of(null));
+
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.point()).toBeNull();
+        expect(component.loading()).toBe(false);
+      });
+
+      it('controla los errores del backend', () => {
+        consultarBack.mockReturnValue(
+          throwError(() => new Error('Error de red'))
+        );
+
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        expect(component.point()).toBeNull();
+        expect(component.loading()).toBe(false);
+      });
+
+      it('no consulta backend si no existe UUID', () => {
+        expect(consultarBack).not.toHaveBeenCalled();
+      });
+
+      it('consulta nuevamente cuando cambia el UUID', () => {
+        component = crearComponente(1, 'Bogotá', 'uuid-123');
+
+        uuidInput.set('uuid-456');
+
+        TestBed.tick();
+
+        expect(consultarBack).toHaveBeenCalledWith('uuid-456');
+      });
+
+      it('prioriza la vista previa sobre el backend', () => {
+        component = crearComponente(
+          1,
+          'Bogotá',
+          'uuid-123',
+          cali
+        );
+
+        expect(component.point()?.latitude).toBe(3.4516);
+      });
+    });
+
+    describe('Leaflet', () => {
+      it('tiene disponible la creación del mapa', () => {
+        expect(leafletMock.createMap).toBeDefined();
+      });
+
+      it('tiene disponible la capa de OpenStreetMap', () => {
+        expect(leafletMock.createTile).toBeDefined();
+      });
+
+      it('tiene disponible el marcador circular', () => {
+        expect(leafletMock.createMarker).toBeDefined();
+      });
+    });
+
+
+    describe('Renderizado y destrucción de Leaflet', () => {
+  type MapInternals = {
+    renderMap: (
+      container: HTMLDivElement,
+      latitude: number,
+      longitude: number
+    ) => void;
+    destroyMap: () => void;
+    map: unknown;
+    marker: unknown;
+  };
+
+  function internals(): MapInternals {
+    return component as unknown as MapInternals;
+  }
+
+  it('crea el mapa, la capa y el marcador', () => {
+    const container = document.createElement('div');
+
+    internals().renderMap(container, 4.6097, -74.0817);
+
+    expect(leafletMock.createMap).toHaveBeenCalledWith(container);
+    expect(leafletMock.createTile).toHaveBeenCalled();
+    expect(leafletMock.createMarker).toHaveBeenCalledWith(
+      [4.6097, -74.0817],
+      expect.objectContaining({
+        radius: 9,
+        fillColor: '#2563eb'
+      })
+    );
+    expect(leafletMock.mapInstance.invalidateSize).toHaveBeenCalled();
   });
 
-  describe('Leaflet', () => {
-    it('tiene disponible la creación del mapa', () => {
-      expect(leafletMock.createMap).toBeDefined();
-    });
+  it('actualiza el marcador sin crear otro mapa', () => {
+    const container = document.createElement('div');
 
-    it('tiene disponible la capa de OpenStreetMap', () => {
-      expect(leafletMock.createTile).toBeDefined();
-    });
+    leafletMock.mapInstance.getContainer.mockReturnValue(container);
 
-    it('tiene disponible el marcador circular', () => {
-      expect(leafletMock.createMarker).toBeDefined();
-    });
+    internals().renderMap(container, 4.6097, -74.0817);
+
+    leafletMock.createMap.mockClear();
+    leafletMock.createMarker.mockClear();
+
+    internals().renderMap(container, 6.2442, -75.5812);
+
+    expect(leafletMock.createMap).not.toHaveBeenCalled();
+    expect(leafletMock.createMarker).not.toHaveBeenCalled();
+    expect(leafletMock.markerInstance.setLatLng).toHaveBeenCalledWith([
+      6.2442,
+      -75.5812
+    ]);
+  });
+
+  it('destruye el mapa anterior si cambia el contenedor', () => {
+    const primero = document.createElement('div');
+    const segundo = document.createElement('div');
+
+    leafletMock.mapInstance.getContainer.mockReturnValue(primero);
+
+    internals().renderMap(primero, 4.6097, -74.0817);
+
+    leafletMock.mapInstance.remove.mockClear();
+    leafletMock.createMap.mockClear();
+
+    internals().renderMap(segundo, 6.2442, -75.5812);
+
+    expect(leafletMock.mapInstance.remove).toHaveBeenCalled();
+    expect(leafletMock.createMap).toHaveBeenCalledWith(segundo);
+  });
+
+  it('libera el mapa y el marcador al destruir el componente', () => {
+    const container = document.createElement('div');
+
+    internals().renderMap(container, 4.6097, -74.0817);
+
+    component.ngOnDestroy();
+
+    expect(leafletMock.mapInstance.remove).toHaveBeenCalled();
+    expect(internals().map).toBeNull();
+    expect(internals().marker).toBeNull();
+  });
+
+  it('permite destruir un mapa que todavía no existe', () => {
+    expect(() => internals().destroyMap()).not.toThrow();
+    expect(internals().map).toBeNull();
   });
 });
+  });
