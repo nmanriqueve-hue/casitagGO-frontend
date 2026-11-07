@@ -159,6 +159,25 @@ export class DetailComponent {
 
   hostName(): string { return this.listing()?.hostName ?? this.session.users().find(u => u.id === this.listing()?.hostId)?.name ?? 'Anfitrión'; }
 
+  async compartir(): Promise<void> {
+    const stay = this.listing();
+    if (!stay) { return; }
+    const enlace = window.location.href;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: stay.title, url: enlace });
+      } catch {
+        // La persona cerró el panel de compartir: no es un error.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(enlace);
+      this.toast.show('Enlace copiado. Ya puedes pegarlo donde quieras.');
+    } catch {
+      this.toast.show('No se pudo copiar el enlace. Cópialo desde la barra de direcciones.', 'warning');
+    }
+  }
   canReserve(): boolean {
     const stay = this.listing();
     if (!stay || stay.status !== 'ACTIVA') { return false; }
