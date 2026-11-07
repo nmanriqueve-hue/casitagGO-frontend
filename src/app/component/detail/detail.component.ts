@@ -162,7 +162,7 @@ export class DetailComponent {
   canReserve(): boolean {
     const stay = this.listing();
     if (!stay || stay.status !== 'ACTIVA') { return false; }
-    if (!['guest', 'host'].includes(this.session.role() ?? '')) { return false; }
+    if (this.session.role() !== null && !(['guest', 'host'].includes(this.session.role() ?? ''))) { return false; }
     const user = this.session.currentUser();
     return stay.uuid ? stay.hostUuid !== user?.uuid : stay.hostId !== user?.id;
   }

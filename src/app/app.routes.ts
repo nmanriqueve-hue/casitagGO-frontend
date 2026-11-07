@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+﻿import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
@@ -7,9 +7,9 @@ export const routes: Routes = [
   { path: 'mensajes', canActivate: [authGuard, roleGuard(['guest', 'host'])], loadComponent: () => import('./component/messages/messages.component').then((m) => m.MessagesComponent), title: 'Mensajes | Lúmina' },
   { path: 'seguridad', canActivate: [authGuard], loadComponent: () => import('./component/security/security.component').then((m) => m.SecurityComponent), title: 'Seguridad | Lúmina' },
   { path: 'verificar-acceso', loadComponent: () => import('./component/verify/verify.component').then((m) => m.VerifyComponent), title: 'Verificar acceso | Lúmina' },
-  { path: '', canActivate: [authGuard], loadComponent: () => import('./component/home/home.component').then((m) => m.HomeComponent), title: 'Inicio | Lúmina' },
-  { path: 'buscar', canActivate: [authGuard], loadComponent: () => import('./component/search/search.component').then((m) => m.SearchComponent), title: 'Explorar alojamientos | Lúmina' },
-  { path: 'alojamientos/:id', canActivate: [authGuard], loadComponent: () => import('./component/detail/detail.component').then((m) => m.DetailComponent), title: 'Detalle del alojamiento | Lúmina' },
+  { path: '', loadComponent: () => import('./component/home/home.component').then((m) => m.HomeComponent), title: 'Inicio | Lúmina' },
+  { path: 'buscar', loadComponent: () => import('./component/search/search.component').then((m) => m.SearchComponent), title: 'Explorar alojamientos | Lúmina' },
+  { path: 'alojamientos/:id', loadComponent: () => import('./component/detail/detail.component').then((m) => m.DetailComponent), title: 'Detalle del alojamiento | Lúmina' },
   { path: 'iniciar-sesion', loadComponent: () => import('./component/login/login.component').then((m) => m.LoginComponent), title: 'Iniciar sesión | Lúmina' },
   { path: 'registro', loadComponent: () => import('./component/register/register.component').then((m) => m.RegisterComponent), title: 'Crear cuenta | Lúmina' },
   { path: 'recuperar-clave', loadComponent: () => import('./component/recover/recover.component').then((m) => m.RecoverComponent), title: 'Recuperar contraseña | Lúmina' },
@@ -28,5 +28,5 @@ export const routes: Routes = [
   { path: 'administracion/publicaciones', canActivate: [authGuard, roleGuard(['admin'])], loadComponent: () => import('./component/admin-listings/admin-listings.component').then((m) => m.AdminListingsComponent), title: 'Moderación | Lúmina' },
   { path: 'administracion/auditoria', canActivate: [authGuard, roleGuard(['admin'])], loadComponent: () => import('./component/audit/audit.component').then((m) => m.AuditComponent), title: 'Auditoría | Lúmina' },
   { path: 'administracion/reportes', canActivate: [authGuard, roleGuard(['admin'])], loadComponent: () => import('./component/reports/reports.component').then((m) => m.ReportsComponent), title: 'Reportes | Lúmina' },
-  { path: '**', canActivate: [authGuard], loadComponent: () => import('./component/not-found/not-found.component').then((m) => m.NotFoundComponent), title: 'Página no encontrada | Lúmina' }
+  { path: '**', loadComponent: () => import('./component/not-found/not-found.component').then((m) => m.NotFoundComponent), title: 'Página no encontrada | Lúmina' }
 ];
