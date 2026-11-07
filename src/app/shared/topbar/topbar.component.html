@@ -8,7 +8,7 @@
     <nav class="nav-links" [class.open]="menuOpen()">
       <a routerLink="/buscar" routerLinkActive="active" (click)="closeMenu()">Explorar</a>
       @if (session.isAuthenticated()) {
-        <details class="optional-menu"><summary>Más</summary><div>@if (session.role() !== 'admin') { <a routerLink="/mis-reservas" (click)="closeMenu()">Mis reservas</a><a routerLink="/favoritos" (click)="closeMenu()">Favoritos</a><a routerLink="/mensajes" (click)="closeMenu()">Mensajes</a> }<a routerLink="/seguridad" (click)="closeMenu()">Seguridad</a></div></details>
+        <details #masMenu class="optional-menu"><summary>Más</summary><div>@if (session.role() !== 'admin') { <a routerLink="/mis-reservas" (click)="closeMenu(masMenu)">Mis reservas</a><a routerLink="/favoritos" (click)="closeMenu(masMenu)">Favoritos</a><a routerLink="/mensajes" (click)="closeMenu(masMenu)">Mensajes</a> }<a routerLink="/seguridad" (click)="closeMenu(masMenu)">Seguridad</a></div></details>
         <a [routerLink]="dashboardRoute()" routerLinkActive="active" (click)="closeMenu()">Mi espacio</a>
         <a routerLink="/notificaciones" routerLinkActive="active" (click)="closeMenu()">Notificaciones</a>
         <div class="user-menu">

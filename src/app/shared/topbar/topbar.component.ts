@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+﻿import { Component, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { SessionService } from '../../core/services/session.service';
 
@@ -17,8 +17,9 @@ export class TopbarComponent {
     this.menuOpen.update((value) => !value);
   }
 
-  closeMenu(): void {
+  closeMenu(menuMas?: HTMLDetailsElement): void {
     this.menuOpen.set(false);
+    if (menuMas) { menuMas.open = false; }
   }
 
   dashboardRoute(): string {
