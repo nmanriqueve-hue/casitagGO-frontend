@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "inversiones-lr-frontend": {
+    "casitago-frontend": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:class": {
@@ -83,10 +83,10 @@
   "builder": "@angular/build:dev-server",
   "configurations": {
     "production": {
-      "buildTarget": "inversiones-lr-frontend:build:production"
+      "buildTarget": "casitago-frontend:build:production"
     },
     "development": {
-      "buildTarget": "inversiones-lr-frontend:build:development"
+      "buildTarget": "casitago-frontend:build:development"
     }
   },
   "defaultConfiguration": "development"
