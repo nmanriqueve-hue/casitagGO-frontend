@@ -7,6 +7,14 @@ interface RetoMfa {
   returnUrl: string | null;
 }
 
+// Lo lanza SessionService cuando el back responde 200 con mfaRequerido: hay que pedir el código.
+export class RetoMfaRequerido extends Error {
+  constructor() {
+    super('Se requiere el código de verificación.');
+    this.name = 'RetoMfaRequerido';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class MfaService {
   // Login que el back respondió pidiendo el código. Solo vive en memoria.
@@ -21,7 +29,9 @@ export class MfaService {
   }
 
   // El back avisa con un texto que empieza por "Se envió un código...". Se compara solo el inicio para no depender de las tildes.
-  esPeticionDeCodigo(error: HttpErrorResponse): boolean {
+  esPeticionDeCodigo(error: unknown): boolean {
+    if (error instanceof RetoMfaRequerido) { return true; }
+    if (!(error instanceof HttpErrorResponse)) { return false; }
     return error.status === 400 && typeof error.error === 'string' && error.error.startsWith('Se envi');
   }
 }
