@@ -94,6 +94,11 @@
                   Revisar detalle
                 </a>
 
+                @if (publicacion.estado === 'BLOQUEADA') {
+                  <button class="btn btn-outline-brand btn-sm" type="button" [disabled]="procesando()" (click)="desbloquear(publicacion)">
+                    Desbloquear
+                  </button>
+                }
                 @if (publicacion.estado !== 'BLOQUEADA') {
                   <button
                     class="btn btn-outline-danger btn-sm"
