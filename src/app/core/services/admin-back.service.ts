@@ -98,6 +98,10 @@ export class AdminBackService {
     return this.http.get<PublicacionAdminBack[]>(`${API_URL}/api/admin/publicaciones`);
   }
 
+  desbloquearPublicacion(id: string): Observable<unknown> {
+    return this.http.patch(`${API_URL}/api/publicaciones/${id}/desbloquear`, {});
+  }
+
   bloquearPublicacion(id: string, motivo: string): Observable<unknown> {
     return this.http.patch(`${API_URL}/api/publicaciones/${id}/bloquear`, { motivo });
   }

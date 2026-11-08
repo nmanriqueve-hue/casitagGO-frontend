@@ -55,6 +55,21 @@ export class AdminListingsComponent {
     });
   }
 
+  desbloquear(publicacion: PublicacionAdminBack): void {
+    if (this.procesando()) { return; }
+    this.procesando.set(true);
+    this.api.desbloquearPublicacion(publicacion.id).subscribe({
+      next: () => {
+        this.procesando.set(false);
+        this.toast.show('La publicación fue desbloqueada y quedó pausada. El anfitrión decide cuándo activarla.', 'info');
+        this.cargar();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.procesando.set(false);
+        this.toast.show(this.mensajeDeError(error, 'No se pudo desbloquear la publicación. Intenta de nuevo.'), 'warning');
+      }
+    });
+  }
   private cargar(): void {
     this.api.publicaciones().subscribe({
       next: (lista) => {
