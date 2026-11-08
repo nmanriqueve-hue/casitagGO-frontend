@@ -4,11 +4,13 @@ import { Observable, map, switchMap } from 'rxjs';
 import { API_URL } from '../config/api.config';
 import { User, UserRole } from '../models/marketplace.models';
 import { USERS } from './mock-data';
+import { RetoMfaRequerido } from './mfa.service';
 
 interface RespuestaLogin {
   token: string;
   expiraEnSegundos: number;
   usuarioId: string;
+  mfaRequerido?: boolean;
   nombre: string;
   rol: string;
 }
@@ -37,6 +39,7 @@ export class SessionService {
     if (codigoMfa) { cuerpo.codigoMfa = codigoMfa; }
     return this.http.post<RespuestaLogin>(`${API_URL}/api/auth/login`, cuerpo).pipe(
       map(respuesta => {
+        if (respuesta.mfaRequerido) { throw new RetoMfaRequerido(); }
         const usuario: User = {
           id: 0,
           uuid: respuesta.usuarioId,
