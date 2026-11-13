@@ -1,10 +1,11 @@
 ﻿import { Component, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { SessionService } from '../../core/services/session.service';
+import { NotificationDotComponent } from '../notification-dot/notification-dot.component';
 
 @Component({
   selector: 'app-topbar',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, NotificationDotComponent],
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.css'
 })
