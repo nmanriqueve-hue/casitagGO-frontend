@@ -10,7 +10,7 @@
       @if (session.isAuthenticated()) {
         <details #masMenu class="optional-menu"><summary>Más</summary><div>@if (session.role() !== 'admin') { <a routerLink="/mis-reservas" (click)="closeMenu(masMenu)">Mis reservas</a><a routerLink="/favoritos" (click)="closeMenu(masMenu)">Favoritos</a><a routerLink="/mensajes" (click)="closeMenu(masMenu)">Mensajes</a> }<a routerLink="/seguridad" (click)="closeMenu(masMenu)">Seguridad</a></div></details>
         <a [routerLink]="dashboardRoute()" routerLinkActive="active" (click)="closeMenu()">Mi espacio</a>
-        <a routerLink="/notificaciones" routerLinkActive="active" (click)="closeMenu()">Notificaciones</a>
+        <a routerLink="/notificaciones" routerLinkActive="active" (click)="closeMenu()">Notificaciones<app-notification-dot /></a>
         <div class="user-menu">
           <a routerLink="/perfil" (click)="closeMenu()">
             <span class="avatar">{{ session.currentUser()?.name?.charAt(0) }}</span>
