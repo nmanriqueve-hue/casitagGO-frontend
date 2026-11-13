@@ -1,4 +1,4 @@
-
+﻿
 // @vitest-environment jsdom
 import '@angular/compiler';
 
@@ -17,6 +17,7 @@ import { Subject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CheckoutComponent } from './checkout.component';
+import { addDays, localToday } from '../../core/models/date-rules';
 import { CatalogService } from '../../core/services/catalog.service';
 import { ReservasBackService } from '../../core/services/reservas-back.service';
 import { SessionService } from '../../core/services/session.service';
@@ -34,6 +35,10 @@ try {
     throw error;
   }
 }
+
+// Las fechas se calculan a partir de hoy: con fechas fijas las pruebas se rompen cuando pasa ese dia.
+const LLEGADA = addDays(localToday(), 30);
+const SALIDA = addDays(LLEGADA, 3);
 
 describe('CheckoutComponent', () => {
   const UUID = '123e4567-e89b-42d3-a456-426614174000';
@@ -109,8 +114,8 @@ component.ngOnInit();
 
     routeId = UUID;
     queryParams = {
-      checkIn: '2026-11-10',
-      checkOut: '2026-11-13',
+      checkIn: LLEGADA,
+      checkOut: SALIDA,
       guests: '2',
       extras: 'false'
     };
@@ -139,8 +144,8 @@ component.ngOnInit();
       id: 'reserva-123456789',
       creadoEn: null,
       publicacionId: UUID,
-      fechaLlegada: '2026-11-10',
-      fechaSalida: '2026-11-13',
+      fechaLlegada: LLEGADA,
+      fechaSalida: SALIDA,
       estado: 'PENDIENTE',
       total: 500000
     };
@@ -260,8 +265,8 @@ component.ngOnInit();
 
       expect(cotizar).toHaveBeenCalledWith(
         UUID,
-        '2026-11-10',
-        '2026-11-13',
+        LLEGADA,
+        SALIDA,
         0
       );
     });
@@ -272,8 +277,8 @@ component.ngOnInit();
 
       expect(cotizar).toHaveBeenCalledWith(
         UUID,
-        '2026-11-10',
-        '2026-11-13',
+        LLEGADA,
+        SALIDA,
         45000
       );
     });
@@ -303,8 +308,8 @@ component.ngOnInit();
     });
 
     it('debe rechazar un rango de fechas invertido', () => {
-      queryParams.checkIn = '2026-11-13';
-      queryParams.checkOut = '2026-11-10';
+      queryParams.checkIn = SALIDA;
+      queryParams.checkOut = LLEGADA;
       configurarComponente();
 
       expect(cotizar).not.toHaveBeenCalled();
@@ -352,8 +357,8 @@ component.ngOnInit();
 
       expect(crearReserva).toHaveBeenCalledWith(
         'cotizacion-001',
-        '2026-11-10',
-        '2026-11-13'
+        LLEGADA,
+        SALIDA
       );
     });
 
