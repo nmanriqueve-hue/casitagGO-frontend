@@ -2,9 +2,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CatalogService } from '../../core/services/catalog.service';
+import { AvisoMensaje, EventosService } from '../../core/services/eventos.service';
 import { ConversacionBack, MensajeBack, MensajesBackService } from '../../core/services/mensajes-back.service';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -14,6 +16,7 @@ export class MessagesComponent {
   private readonly api = inject(MensajesBackService);
   private readonly catalog = inject(CatalogService);
   private readonly toast = inject(ToastService);
+  private readonly eventos = inject(EventosService);
   private readonly alojamiento = inject(ActivatedRoute).snapshot.queryParamMap.get('alojamiento');
   readonly session = inject(SessionService);
 
@@ -28,6 +31,7 @@ export class MessagesComponent {
 
   constructor() {
     this.cargarBandeja(true);
+    this.eventos.mensajes.pipe(takeUntilDestroyed()).subscribe((aviso) => this.alRecibirAviso(aviso));
   }
 
   esAnfitrion(): boolean {
@@ -96,6 +100,27 @@ export class MessagesComponent {
       error: (error: HttpErrorResponse) => {
         this.enviando.set(false);
         this.toast.show(this.mensajeDeError(error, 'No se pudo enviar el mensaje. Intenta de nuevo.'), 'warning');
+      }
+    });
+  }
+
+  private alRecibirAviso(aviso: AvisoMensaje): void {
+    this.cargarBandeja(false);
+    const abierta = this.seleccionada();
+    if (abierta && abierta.publicacionId === aviso.publicacionId && abierta.huespedId === aviso.huespedId) {
+      this.recargarMensajes(abierta);
+    } else {
+      this.toast.show('Tienes un mensaje nuevo.', 'info');
+    }
+  }
+
+  private recargarMensajes(conversacion: ConversacionBack): void {
+    this.api.conversacion(conversacion.publicacionId, conversacion.huespedId).subscribe({
+      next: (lista) => {
+        if (this.seleccionada() === conversacion) { this.mensajes.set(lista); }
+      },
+      error: (error: HttpErrorResponse) => {
+        this.toast.show(this.mensajeDeError(error, 'No se pudo actualizar la conversación.'), 'warning');
       }
     });
   }

@@ -1,4 +1,5 @@
 ﻿import { Injectable, effect, inject, untracked } from '@angular/core';
+import { Subject } from 'rxjs';
 import { API_URL } from '../config/api.config';
 import { NotificacionesBackService } from './notificaciones-back.service';
 import { SessionService } from './session.service';
@@ -7,6 +8,11 @@ import { ToastService } from './toast.service';
 const CLAVE_TOKEN = 'casitago_token';
 const ESPERA_INICIAL_MS = 2000;
 const ESPERA_MAXIMA_MS = 30000;
+
+export interface AvisoMensaje {
+  publicacionId: string;
+  huespedId: string;
+}
 
 interface LectorDeFlujo {
   read(): Promise<{ done: boolean; value?: Uint8Array }>;
@@ -20,6 +26,9 @@ export class EventosService {
   private readonly session = inject(SessionService);
   private readonly notificaciones = inject(NotificacionesBackService);
   private readonly toast = inject(ToastService);
+
+  // Avisos de mensajes de chat nuevos: los usa la pantalla de mensajes.
+  readonly mensajes = new Subject<AvisoMensaje>();
 
   private activo = false;
   private token: string | null = null;
@@ -135,6 +144,8 @@ export class EventosService {
     }
     if (tipo === 'notificacion') {
       this.alRecibirNotificacion(datos);
+    } else if (tipo === 'mensaje') {
+      this.alRecibirMensaje(datos);
     }
   }
 
@@ -143,6 +154,17 @@ export class EventosService {
     const mensaje = this.extraerMensaje(datos);
     if (mensaje) {
       this.toast.show(mensaje, 'info');
+    }
+  }
+
+  private alRecibirMensaje(datos: string): void {
+    try {
+      const aviso = JSON.parse(datos) as { publicacionId?: unknown; huespedId?: unknown };
+      if (typeof aviso.publicacionId === 'string' && typeof aviso.huespedId === 'string') {
+        this.mensajes.next({ publicacionId: aviso.publicacionId, huespedId: aviso.huespedId });
+      }
+    } catch {
+      // Aviso mal formado: se ignora.
     }
   }
 
