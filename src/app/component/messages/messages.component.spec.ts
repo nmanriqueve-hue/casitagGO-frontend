@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MessagesComponent } from './messages.component';
 import { CatalogService } from '../../core/services/catalog.service';
+import { EventosService } from '../../core/services/eventos.service';
 import { ConversacionBack, MensajeBack, MensajesBackService } from '../../core/services/mensajes-back.service';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -71,6 +72,7 @@ describe('MessagesComponent', () => {
         { provide: CatalogService, useValue: { obtenerDetalle } },
         { provide: SessionService, useValue: { role: () => rol } },
         { provide: ToastService, useValue: { show: mostrarToast } },
+        { provide: EventosService, useValue: { mensajes: new Subject() } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { queryParamMap: convertToParamMap(alojamiento ? { alojamiento } : {}) } }
